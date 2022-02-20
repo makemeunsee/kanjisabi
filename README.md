@@ -6,8 +6,6 @@
 
 ## Usage
 
-## License
-
 ## Acknowledgments
 
 [kanjitomo-ocr](https://github.com/sakarika/kanjitomo-ocr)
