@@ -3,16 +3,19 @@ extern crate screenshot;
 extern crate tauri_hotkey;
 extern crate tesseract;
 
+extern crate tesseract_sys;
+
 use std::time;
 
 use device_query::{DeviceQuery, DeviceState};
 use tauri_hotkey::{Hotkey, HotkeyManager, Key};
+use tesseract::{Tesseract, TesseractError};
 
 use std::sync::{Arc, RwLock};
 
 use screenshot::get_screenshot_area;
 
-fn main() {
+fn main() -> Result<(), TesseractError> {
     let device_state = DeviceState::new();
     let mut mouse_pos = device_state.get_mouse().coords;
 
@@ -40,12 +43,9 @@ fn main() {
 
     let mut no_mvt_duration = 0;
 
-    loop {
-        if let Ok(read_guard) = quit_r.read() {
-            if *read_guard {
-                break;
-            }
-        }
+    let lets_quit = move || quit_r.read().map_or(false, |x| *x);
+
+    while !lets_quit() {
         let pos = device_state.get_mouse().coords;
         if mouse_pos != pos {
             no_mvt_duration = 0;
@@ -55,21 +55,52 @@ fn main() {
         }
 
         if no_mvt_duration == 50 {
-            let sshot =
-                get_screenshot_area(0, mouse_pos.0 as u32, mouse_pos.1 as u32 - 100, 200, 100).unwrap();
-
             println!(
-                "{:?}", //(sshot.width(), sshot.height(), sshot.as_ref().len())
-                tesseract::ocr_from_frame(
-                    sshot.as_ref(),
-                    sshot.width() as i32,
-                    sshot.height() as i32,
-                    4,
-                    4 * sshot.width() as i32,
-                    "jpn"
+                "requesting {:?}",
+                (
+                    mouse_pos.0 as u32,
+                    std::cmp::max(0, mouse_pos.1 - 100) as u32,
+                    200,
+                    std::cmp::min(100, mouse_pos.1)
                 )
             );
+            let sshot = get_screenshot_area(
+                0,
+                mouse_pos.0 as u32,
+                std::cmp::max(0, mouse_pos.1 - 100) as u32,
+                200,
+                std::cmp::min(100, std::cmp::max(1, mouse_pos.1 as u32)),
+            )
+            .unwrap();
+
+            let width = sshot.width() as i32;
+            let height = sshot.height() as i32;
+            let frame_data = sshot.as_ref();
+            let bytes_per_pixel = 4;
+            let bytes_per_line = bytes_per_pixel * width;
+
+            let tsv = Tesseract::new(None, Some("jpn"))?
+                .set_frame(frame_data, width, height, bytes_per_pixel, bytes_per_line)?
+                .recognize()?
+                .get_tsv_text(0)?;
+
+            println!("{:?}", tsv);
+
+            // let results = tesseract::ocr_from_frame(
+            //     frame_data,
+            //     width,
+            //     height,
+            //     bytes_per_pixel,
+            //     bytes_per_line,
+            //     language,
+            // );
+            // println!(
+            //     "{:?}", //(sshot.width(), sshot.height(), sshot.as_ref().len())
+            //     results
+            // );
         }
         std::thread::sleep(ten_millis);
     }
+
+    Ok(())
 }

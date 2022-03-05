@@ -8,8 +8,12 @@ edition = "2021"
 [dependencies]
 device_query = "*"
 tauri-hotkey = "*"
-tesseract = "*"
+tesseract-sys = "*"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
+# screenshot = { path = "../screenshot-rs" }
+# tesseract = "*"
+tesseract = { git = "https://github.com/makemeunsee/tesseract-rs" }
+# tesseract = { path = "../tesseract-rs" }
 
 jni = "*"
 tokio = { version = "1", features = ["full"] }
