@@ -8,7 +8,11 @@ edition = "2021"
 [dependencies]
 device_query = "*"
 tauri-hotkey = "*"
+tesseract = "*"
+screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
+
 jni = "*"
 tokio = { version = "1", features = ["full"] }
 wgpu = "*"
 winit = "*"
+egui-winit = "*"
