@@ -15,7 +15,7 @@ use std::sync::{Arc, RwLock};
 
 use screenshot::get_screenshot_area;
 
-fn main() -> Result<(), TesseractError> {
+fn main() {
     let device_state = DeviceState::new();
     let mut mouse_pos = device_state.get_mouse().coords;
 
@@ -55,15 +55,6 @@ fn main() -> Result<(), TesseractError> {
         }
 
         if no_mvt_duration == 50 {
-            println!(
-                "requesting {:?}",
-                (
-                    mouse_pos.0 as u32,
-                    std::cmp::max(0, mouse_pos.1 - 100) as u32,
-                    200,
-                    std::cmp::min(100, mouse_pos.1)
-                )
-            );
             let sshot = get_screenshot_area(
                 0,
                 mouse_pos.0 as u32,
@@ -79,28 +70,45 @@ fn main() -> Result<(), TesseractError> {
             let bytes_per_pixel = 4;
             let bytes_per_line = bytes_per_pixel * width;
 
-            let tsv = Tesseract::new(None, Some("jpn"))?
-                .set_frame(frame_data, width, height, bytes_per_pixel, bytes_per_line)?
-                .recognize()?
-                .get_tsv_text(0)?;
-
-            println!("{:?}", tsv);
-
-            // let results = tesseract::ocr_from_frame(
-            //     frame_data,
-            //     width,
-            //     height,
-            //     bytes_per_pixel,
-            //     bytes_per_line,
-            //     language,
-            // );
-            // println!(
-            //     "{:?}", //(sshot.width(), sshot.height(), sshot.as_ref().len())
-            //     results
-            // );
+            println!(
+                "{:?}",
+                recognize_words(frame_data, width, height, bytes_per_pixel, bytes_per_line)
+                    .unwrap_or(vec!())
+            );
         }
         std::thread::sleep(ten_millis);
     }
+}
 
-    Ok(())
+fn recognize_words(
+    frame_data: &[u8],
+    width: i32,
+    height: i32,
+    bytes_per_pixel: i32,
+    bytes_per_line: i32,
+) -> Result<Vec<(String, f32, u32, u32, u32, u32)>, TesseractError> {
+    let tsv = Tesseract::new(None, Some("jpn"))?
+        .set_frame(frame_data, width, height, bytes_per_pixel, bytes_per_line)?
+        .recognize()?
+        .get_tsv_text(0)?;
+
+    Ok(tsv
+        .lines()
+        .filter(|l| l.starts_with("5"))
+        .filter_map(|l| maybe_word(l).ok())
+        .collect())
+}
+
+fn maybe_word(s: &str) -> Result<(String, f32, u32, u32, u32, u32), ()> {
+    let tokens: Vec<String> = s.split_terminator("\t").map(String::from).collect();
+    if tokens.len() < 12 {
+        return Err(());
+    }
+    let x = tokens[6].parse::<u32>().map_err(|_| ())?;
+    let y = tokens[7].parse::<u32>().map_err(|_| ())?;
+    let w = tokens[8].parse::<u32>().map_err(|_| ())?;
+    let h = tokens[9].parse::<u32>().map_err(|_| ())?;
+    let conf = tokens[10].parse::<f32>().map_err(|_| ())?;
+    let word = tokens[11].clone();
+    Ok((word, conf, x, y, w, h))
 }

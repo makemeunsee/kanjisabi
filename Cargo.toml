@@ -11,12 +11,9 @@ tauri-hotkey = "*"
 tesseract-sys = "*"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
 # screenshot = { path = "../screenshot-rs" }
-# tesseract = "*"
-tesseract = { git = "https://github.com/makemeunsee/tesseract-rs" }
+tesseract = "*"
+# tesseract = { git = "https://github.com/makemeunsee/tesseract-rs" }
 # tesseract = { path = "../tesseract-rs" }
+sdl2 = "*"
 
-jni = "*"
-tokio = { version = "1", features = ["full"] }
-wgpu = "*"
-winit = "*"
-egui-winit = "*"
+qt_widgets = "*"
