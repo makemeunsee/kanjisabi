@@ -6,13 +6,11 @@ use qt_widgets::qt_core::QBox;
 use qt_widgets::qt_core::QFlags;
 use qt_widgets::qt_core::WidgetAttribute;
 use qt_widgets::qt_core::WindowType;
-use qt_widgets::QPushButton;
+use qt_widgets::QLabel;
 use qt_widgets::QWidget;
 
 pub struct Overlay {
     overlay: QBox<QWidget>,
-    panel: QBox<QWidget>,
-    button: QBox<QPushButton>,
 }
 
 impl Overlay {
@@ -20,17 +18,7 @@ impl Overlay {
         unsafe {
             let overlay = QWidget::new_0a();
 
-            let panel = QWidget::new_0a();
-            panel.set_parent_1a(&overlay);
-
-            let button = QPushButton::from_q_string(&qs("^^"));
-            button.set_parent_1a(&panel);
-
-            let this = Rc::new(Overlay {
-                overlay,
-                panel,
-                button,
-            });
+            let this = Rc::new(Overlay { overlay });
             this.init();
             this
         }
@@ -54,15 +42,27 @@ impl Overlay {
                 | WindowType::WindowStaysOnTopHint,
         ));
 
-        // self.widget.set_style_sheet(&qs("color:#FFFFFFFF"));
-
-        self.panel.set_fixed_size_1a(&self.overlay.frame_size());
         self.overlay.set_style_sheet(&qs(
-            ".QWidget{background-color:rgba(255,0,0,20);border: 4px solid red;padding: 6px;}",
+            ".QWidget{background-color:rgba(255,0,0,20);border: 1px solid red;}
+            .QLabel{",
         ));
+    }
 
-        self.panel.set_geometry_4a(50, 50, 400, 200);
-        self.button.set_geometry_4a(200, 130, 100, 40);
+    pub fn add_box(self: &Rc<Self>, x: i32, y: i32, w: i32, h: i32) {
+        unsafe {
+            let panel = QWidget::new_0a();
+            panel.set_geometry_4a(x, y, w, h);
+            panel.set_parent_1a(&self.overlay);
+        }
+    }
+
+    pub fn add_text(self: &Rc<Self>, x: i32, y: i32, size: i32, text: &String) {
+        unsafe {
+            let formatted = std::format!("<p style=\"font-size:{}px\">{}</p>", size, text);
+            let label = QLabel::from_q_string(&qs(formatted.as_str()));
+            label.set_geometry_4a(x, y, label.width(), label.height());
+            label.set_parent_1a(&self.overlay);
+        }
     }
 
     pub fn show(self: &Rc<Self>) {
