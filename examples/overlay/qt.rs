@@ -43,8 +43,7 @@ impl Overlay {
         ));
 
         self.overlay.set_style_sheet(&qs(
-            ".QWidget{background-color:rgba(255,0,0,20);border: 1px solid red;}
-            .QLabel{",
+            ".QWidget{background-color:rgba(255,0,0,20);border: 1px solid red;}",
         ));
     }
 

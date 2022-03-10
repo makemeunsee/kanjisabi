@@ -1,51 +1,52 @@
 extern crate sdl2;
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use anyhow::Result;
+use kanjisabi::hotkey::Helper;
+use kanjisabi::overlay::sdl::Overlay;
 use sdl2::pixels::Color;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use tauri_hotkey::Key;
 
-pub fn main() {
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+pub fn main() -> Result<()> {
+    let quit = Arc::new(RwLock::new(false));
+    let quit_w = quit.clone();
+    let quit_r = quit.clone();
 
-    let window = video_subsystem
-        .window("rust-sdl2 demo", 800, 600)
-        .position(500, 500)
-        .borderless()
-        .build()
-        .unwrap();
+    let mut hkm = Helper::new();
+    hkm.register_hk(vec![], vec![Key::ESCAPE], move || {
+        if let Ok(mut write_guard) = quit_w.write() {
+            *write_guard = true;
+        }
+    })?;
 
-    let mut canvas = window.into_canvas().build().unwrap();
-    let _ = canvas.window_mut().set_opacity(1.);
+    let lets_quit = move || quit_r.read().map_or(false, |x| *x);
 
-    canvas.set_draw_color(Color::RGB(255, 0, 0));
-    canvas.clear();
-    canvas.present();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let sdl_overlay = Overlay::new();
+
+    let mut white_thin = sdl_overlay.new_overlay_canvas(700, 800, 150, 20, 1.);
+    let mut red_square = sdl_overlay.new_overlay_canvas(1000, 500, 300, 300, 0.);
 
     let mut i = 0;
-    'running: loop {
+    while !lets_quit() {
         i = i + 1;
-        canvas
-            .window()
-            .surface(&event_pump)
-            .unwrap();
-        let _ = canvas.window_mut().set_opacity((i as f32 / 50.).cos() * 0.4 + 0.6);
-        canvas.clear();
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
-            }
-        }
 
-        canvas.present();
+        let _ = white_thin
+            .window_mut()
+            .set_opacity((i as f32 / 50.).cos() * 0.4 + 0.6);
+        white_thin.clear();
+        white_thin.set_draw_color(Color::RGB(255, 255, 255));
+        white_thin.present();
+
+        let _ = red_square
+            .window_mut()
+            .set_opacity((i as f32 / 50.).sin() * 0.4 + 0.6);
+        red_square.clear();
+        red_square.set_draw_color(Color::RGB(255, 0, 0));
+        red_square.present();
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
+
+    Ok(())
 }

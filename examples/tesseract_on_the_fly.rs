@@ -5,110 +5,79 @@ extern crate tesseract;
 
 extern crate tesseract_sys;
 
-use std::time;
-
+use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
-use tauri_hotkey::{Hotkey, HotkeyManager, Key};
-use tesseract::{Tesseract, TesseractError};
-
-use std::sync::{Arc, RwLock};
-
+use kanjisabi::hotkey::Helper;
+use kanjisabi::ocr::recognize_words;
 use screenshot::get_screenshot_area;
+use std::sync::{Arc, RwLock};
+use std::time;
+use tauri_hotkey::Key;
 
-fn main() {
+pub fn main() -> Result<()> {
+    let twenty_millis = time::Duration::from_millis(20);
+
+    let ocr_trigger_in_ticks = 2;
+
+    let capture_w = 300;
+    let capture_h = 100;
+
+    let keep_running = Arc::new(RwLock::new(true));
+    let keep_running_w = keep_running.clone();
+
+    let mut hkm = Helper::new();
+    hkm.register_hk(vec![], vec![Key::ESCAPE], move || {
+        if let Ok(mut write_guard) = keep_running_w.write() {
+            *write_guard = false;
+        }
+    })?;
+
+    let keep_running = move || keep_running.read().map_or(false, |x| *x);
+
     let device_state = DeviceState::new();
+
     let mut mouse_pos = device_state.get_mouse().coords;
 
-    let mut hkm = HotkeyManager::new();
-    let quit = Arc::new(RwLock::new(false));
-    let quit_w = quit.clone();
-    let quit_r = quit.clone();
+    let mut elapsed_ticks_since_mouse_moved = 0;
 
-    match hkm.register(
-        Hotkey {
-            modifiers: vec![],
-            keys: vec![Key::ESCAPE],
-        },
-        move || {
-            if let Ok(mut write_guard) = quit_w.write() {
-                *write_guard = true;
-            }
-        },
-    ) {
-        Ok(_) => println!("hotkey registration Ok"),
-        Err(str) => println!("hotkey registration failed: {0}", str),
-    }
-
-    let ten_millis = time::Duration::from_millis(10);
-
-    let mut no_mvt_duration = 0;
-
-    let lets_quit = move || quit_r.read().map_or(false, |x| *x);
-
-    while !lets_quit() {
+    while keep_running() {
         let pos = device_state.get_mouse().coords;
         if mouse_pos != pos {
-            no_mvt_duration = 0;
+            // mouse has moved, reset everything
             mouse_pos = pos;
+            elapsed_ticks_since_mouse_moved = 0;
         } else {
-            no_mvt_duration += ten_millis.as_millis();
+            // mouse hasn't moved
+            elapsed_ticks_since_mouse_moved += 1;
         }
 
-        if no_mvt_duration == 50 {
-            let sshot = get_screenshot_area(
-                0,
-                mouse_pos.0 as u32,
-                std::cmp::max(0, mouse_pos.1 - 100) as u32,
-                200,
-                std::cmp::min(100, std::cmp::max(1, mouse_pos.1 as u32)),
-            )
-            .unwrap();
+        if elapsed_ticks_since_mouse_moved == ocr_trigger_in_ticks {
+            // mouse lingered somewhere long enough, trigger OCR
 
-            let width = sshot.width() as i32;
-            let height = sshot.height() as i32;
-            let frame_data = sshot.as_ref();
-            let bytes_per_pixel = 4;
-            let bytes_per_line = bytes_per_pixel * width;
+            // capture the area next to the mouse cursor
+            let x = mouse_pos.0;
+            let y = std::cmp::max(0, mouse_pos.1 - capture_h);
+            let w = capture_w;
+            let h = std::cmp::min(capture_h, std::cmp::max(1, mouse_pos.1));
+            let ocr_area = get_screenshot_area(0, x as u32, y as u32, w as u32, h as u32).unwrap();
+
+            println!("running OCR...");
 
             println!(
                 "{:?}",
-                recognize_words(frame_data, width, height, bytes_per_pixel, bytes_per_line)
-                    .unwrap_or(vec!())
+                recognize_words(
+                    &String::from("eng"),
+                    ocr_area.as_ref(),
+                    ocr_area.width() as i32,
+                    ocr_area.height() as i32,
+                    ocr_area.pixel_width() as i32,
+                    ocr_area.pixel_width() as i32 * ocr_area.width() as i32,
+                )
+                .unwrap_or(vec![])
             );
         }
-        std::thread::sleep(ten_millis);
+        std::thread::sleep(twenty_millis);
     }
-}
 
-fn recognize_words(
-    frame_data: &[u8],
-    width: i32,
-    height: i32,
-    bytes_per_pixel: i32,
-    bytes_per_line: i32,
-) -> Result<Vec<(String, f32, u32, u32, u32, u32)>, TesseractError> {
-    let tsv = Tesseract::new(None, Some("jpn"))?
-        .set_frame(frame_data, width, height, bytes_per_pixel, bytes_per_line)?
-        .recognize()?
-        .get_tsv_text(0)?;
-
-    Ok(tsv
-        .lines()
-        .filter(|l| l.starts_with("5"))
-        .filter_map(|l| maybe_word(l).ok())
-        .collect())
-}
-
-fn maybe_word(s: &str) -> Result<(String, f32, u32, u32, u32, u32), ()> {
-    let tokens: Vec<String> = s.split_terminator("\t").map(String::from).collect();
-    if tokens.len() < 12 {
-        return Err(());
-    }
-    let x = tokens[6].parse::<u32>().map_err(|_| ())?;
-    let y = tokens[7].parse::<u32>().map_err(|_| ())?;
-    let w = tokens[8].parse::<u32>().map_err(|_| ())?;
-    let h = tokens[9].parse::<u32>().map_err(|_| ())?;
-    let conf = tokens[10].parse::<f32>().map_err(|_| ())?;
-    let word = tokens[11].clone();
-    Ok((word, conf, x, y, w, h))
+    Ok(())
 }

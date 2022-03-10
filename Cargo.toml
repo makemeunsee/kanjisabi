@@ -6,14 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 device_query = "*"
 tauri-hotkey = "*"
 tesseract-sys = "*"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
-# screenshot = { path = "../screenshot-rs" }
 tesseract = "*"
-# tesseract = { git = "https://github.com/makemeunsee/tesseract-rs" }
-# tesseract = { path = "../tesseract-rs" }
 sdl2 = "*"
 
+[dev-dependencies]
 qt_widgets = "*"
