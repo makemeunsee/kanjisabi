@@ -2,10 +2,28 @@
 
 ## Description
 
-`rust` alternative to [KanjiTomo](https://www.kanjitomo.net/)
+`rust` alternative to [KanjiTomo](https://www.kanjitomo.net/), i.e. on screen Japanese OCR + translation hints.
+
+Heavily WIP for now
+
+Powered by:
+- [Tesseract](https://github.com/tesseract-ocr/tesseract)
+- [JMDict](http://edrdg.org/jmdict/j_jmdict.html) (soon)
+- [SDL](https://www.libsdl.org/)
+- [a bunch of awesome Rust libraries and wrappers](Cargo.toml)
+
+## Requirements
+
+TODO
+* Tesseract libs
+* ??
 
 ## Usage
 
+* `ctrl` + `alt` + `Esc`: quit
+* `ctrl` + `alt` + `T`: toggle OCR and hints
+* `ctrl` + `alt` + `up`|`right`|`down`|`left`: adjust OCR capture area
+
 ## Acknowledgments
 
-[kanjitomo-ocr](https://github.com/sakarika/kanjitomo-ocr)
+[kanjitomo-ocr](https://github.com/sakarika/kanjitomo-ocr) for the original inspiration.
