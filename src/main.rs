@@ -6,7 +6,7 @@ extern crate tesseract_sys;
 
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
-use kanjisabi::{hotkey::Helper, ocr::recognize_words, overlay::sdl::Overlay};
+use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR, overlay::sdl::Overlay};
 use screenshot::get_screenshot_area;
 use sdl2::pixels::Color;
 use std::sync::{Arc, RwLock};
@@ -132,8 +132,7 @@ fn main() -> Result<()> {
 
     let twenty_millis = time::Duration::from_millis(20);
 
-    // arbitrary threshold to consider words as well recognized
-    let ocr_confidence_threshold = 80.;
+    let ocr = JpnOCR::new();
 
     // how many ticks with no mouse movement to wait before triggering OCR
     let ocr_trigger_in_ticks = 2;
@@ -203,33 +202,31 @@ fn main() -> Result<()> {
 
                 println!("running OCR...");
 
-                let ocr_words = recognize_words(
-                    &String::from("jpn"),
-                    ocr_area.as_ref(),
-                    ocr_area.width() as i32,
-                    ocr_area.height() as i32,
-                    ocr_area.pixel_width() as i32,
-                    ocr_area.pixel_width() as i32 * ocr_area.width() as i32,
-                )
-                .unwrap_or(vec![]);
+                let ocr_words = ocr
+                    .recognize_words(
+                        ocr_area.as_ref(),
+                        ocr_area.width() as i32,
+                        ocr_area.height() as i32,
+                        ocr_area.pixel_width() as i32,
+                        ocr_area.pixel_width() as i32 * ocr_area.width() as i32,
+                    )
+                    .unwrap_or(vec![]);
 
                 for word in ocr_words {
-                    if word.conf > ocr_confidence_threshold {
-                        println!("{:?}", word.word);
-                        // highlight each recognized word on screen
-                        let mut canvas = sdl_overlay.new_overlay_canvas(
-                            x + word.x as i32,
-                            y + word.y as i32,
-                            word.w,
-                            word.h,
-                            0.2,
-                        );
-                        canvas.set_draw_color(Color::RGB(255, 0, 0));
-                        canvas.clear();
-                        canvas.present();
-                        // store the canvas so it doesn't go out of scope at the end of the current iteration
-                        canvases.push(canvas);
-                    }
+                    println!("{:?}", word.text);
+                    // highlight each recognized word on screen
+                    let mut canvas = sdl_overlay.new_overlay_canvas(
+                        x + word.x as i32,
+                        y + word.y as i32,
+                        word.w,
+                        word.h,
+                        0.2,
+                    );
+                    canvas.set_draw_color(Color::RGB(255, 0, 0));
+                    canvas.clear();
+                    canvas.present();
+                    // store the canvas so it doesn't go out of scope at the end of the current iteration
+                    canvases.push(canvas);
                 }
             }
         } else {

@@ -8,7 +8,7 @@ extern crate tesseract_sys;
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
 use kanjisabi::hotkey::Helper;
-use kanjisabi::ocr::recognize_words;
+use kanjisabi::ocr::OCR;
 use screenshot::get_screenshot_area;
 use std::sync::{Arc, RwLock};
 use std::time;
@@ -40,6 +40,10 @@ pub fn main() -> Result<()> {
 
     let mut elapsed_ticks_since_mouse_moved = 0;
 
+    let ocr = OCR {
+        lang: String::from("eng"),
+    };
+
     while keep_running() {
         let pos = device_state.get_mouse().coords;
         if mouse_pos != pos {
@@ -65,8 +69,7 @@ pub fn main() -> Result<()> {
 
             println!(
                 "{:?}",
-                recognize_words(
-                    &String::from("eng"),
+                ocr.recognize_words(
                     ocr_area.as_ref(),
                     ocr_area.width() as i32,
                     ocr_area.height() as i32,

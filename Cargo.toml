@@ -8,11 +8,12 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 device_query = "*"
-tauri-hotkey = "*"
-tesseract-sys = "*"
+jmdict = "*"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
-tesseract = "*"
 sdl2 = "*"
+tauri-hotkey = "*"
+tesseract = "*"
+tesseract-sys = "*"
 
 [dev-dependencies]
 qt_widgets = "*"

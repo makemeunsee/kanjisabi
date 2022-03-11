@@ -2,7 +2,7 @@
 
 ## Description
 
-`rust` alternative to [KanjiTomo](https://www.kanjitomo.net/), i.e. on screen Japanese OCR + translation hints.
+`rust` alternative to [KanjiTomo](https://www.kanjitomo.net/), i.e. on-screen Japanese OCR + translation hints.
 
 Heavily WIP for now
 
