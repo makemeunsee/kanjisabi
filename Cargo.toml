@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0"
 device_query = "*"
 jmdict = "*"
+kanji = { git = "https://github.com/makemeunsee/rs-kanji" }
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
 sdl2 = "*"
 tauri-hotkey = "*"

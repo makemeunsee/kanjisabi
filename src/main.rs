@@ -200,8 +200,6 @@ fn main() -> Result<()> {
                 // store the canvas so it doesn't go out of scope at the end of the current iteration
                 canvases.push(canvas);
 
-                println!("running OCR...");
-
                 let ocr_words = ocr
                     .recognize_words(
                         ocr_area.as_ref(),
@@ -212,7 +210,7 @@ fn main() -> Result<()> {
                     )
                     .unwrap_or(vec![]);
 
-                for word in ocr_words {
+                for word in &ocr_words {
                     println!("{:?}", word.text);
                     // highlight each recognized word on screen
                     let mut canvas = sdl_overlay.new_overlay_canvas(

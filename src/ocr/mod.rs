@@ -66,13 +66,6 @@ impl OCR {
         let h = tokens[9].parse::<u32>()?;
         let text = tokens[11].clone();
 
-        println!(
-            "word_id: {:?}, conf: {}, word: {}",
-            (line_id, word_num),
-            conf,
-            text
-        );
-
         Ok(OCRWord {
             text,
             line_id,

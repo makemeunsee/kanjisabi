@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
+use kanji::{is_hiragana, is_kanji, is_katakana};
 
 pub struct JpnOCR {
     ocr: OCR,
@@ -25,7 +26,10 @@ impl JpnOCR {
                 lang: String::from("jpn"),
             },
             threshold: 80.,
-            discriminator: |_| true, // TODO filter kanji,hiragana,katakana
+            discriminator: |s| {
+                s.chars()
+                    .all(|c| is_kanji(c) || is_katakana(c) || is_hiragana(c))
+            },
         }
     }
 
@@ -87,15 +91,14 @@ fn from_word_seq(seq: &Vec<&OCRWord>) -> JpnWord {
     let mut y = std::i32::MAX;
     let mut w = 0;
     let mut h = 0;
-    let text = "";
+    let mut text = "".to_string();
     for word in seq {
         x = std::cmp::min(x, word.x as i32);
         y = std::cmp::min(y, word.y as i32);
         w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
         h = std::cmp::max(h, word.h as i32 + word.y as i32 - y);
-        text.to_owned().push_str(word.text.as_str());
+        text.push_str(&word.text);
     }
-    // TODO debug JpnWord bounds compared to individual OCRWord bounds
     JpnWord {
         text: text.to_owned(),
         x: x as u32,
