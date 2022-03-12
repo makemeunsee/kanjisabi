@@ -7,7 +7,7 @@ use anyhow::Result;
 pub struct JpnOCR {
     ocr: OCR,
     threshold: f32,
-    discriminator: fn(&String) -> bool, // TODO filter kanji,hiragana,katakana
+    discriminator: fn(&String) -> bool,
 }
 
 pub struct JpnWord {
@@ -25,7 +25,7 @@ impl JpnOCR {
                 lang: String::from("jpn"),
             },
             threshold: 80.,
-            discriminator: |_| true,
+            discriminator: |_| true, // TODO filter kanji,hiragana,katakana
         }
     }
 
@@ -53,23 +53,54 @@ impl JpnOCR {
                     acc
                 },
             )
-            .values()
+            .values_mut()
             .flat_map(|line| self.from_line(line))
             .collect()
     }
 
     // digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
-    pub fn from_line(self: &Self, line: &Vec<&OCRWord>) -> Vec<JpnWord> {
+    pub fn from_line(self: &Self, line: &mut Vec<&OCRWord>) -> Vec<JpnWord> {
+        line.sort_by(|a, b| a.word_num.cmp(&b.word_num));
         line.into_iter()
             .filter(|w| w.conf > self.threshold && (self.discriminator)(&w.text))
-            // TODO sort then split on holes then map sequences to JpnWords
-            .map(move |w| JpnWord {
-                text: w.text.to_owned(),
-                x: w.x,
-                y: w.y,
-                w: w.w,
-                h: w.h,
+            .fold(vec![], |mut acc: Vec<Vec<&OCRWord>>, word| {
+                let last_seq = acc.last_mut();
+                let last_id = last_seq
+                    .as_ref()
+                    .and_then(|v| v.last())
+                    .map_or(std::u32::MAX - 1, |w| w.word_num);
+                if last_id + 1 == word.word_num {
+                    last_seq.unwrap().push(word);
+                } else {
+                    acc.push(vec![word]);
+                }
+                acc
             })
+            .into_iter()
+            .map(|w| from_word_seq(&w))
             .collect()
+    }
+}
+
+fn from_word_seq(seq: &Vec<&OCRWord>) -> JpnWord {
+    let mut x = std::i32::MAX;
+    let mut y = std::i32::MAX;
+    let mut w = 0;
+    let mut h = 0;
+    let text = "";
+    for word in seq {
+        x = std::cmp::min(x, word.x as i32);
+        y = std::cmp::min(y, word.y as i32);
+        w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
+        h = std::cmp::max(h, word.h as i32 + word.y as i32 - y);
+        text.to_owned().push_str(word.text.as_str());
+    }
+    // TODO debug JpnWord bounds compared to individual OCRWord bounds
+    JpnWord {
+        text: text.to_owned(),
+        x: x as u32,
+        y: y as u32,
+        w: w as u32,
+        h: h as u32,
     }
 }
