@@ -26,6 +26,7 @@ TODO
 * `ctrl` + `alt` + `Esc`: quit
 * `ctrl` + `alt` + `T`: toggle OCR and hints
 * `ctrl` + `alt` + `up`|`right`|`down`|`left`: adjust OCR capture area
+* `ctrl` + `alt` + `-`|`=`: adjust overlay font scaling
 
 ## Acknowledgments
 
