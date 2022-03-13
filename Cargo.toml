@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 device_query = "*"
-fontconfig = "*"
+fontconfig = { git = "https://github.com/makemeunsee/fontconfig-rs" }
 jmdict = "*"
 kanji = { git = "https://github.com/makemeunsee/rs-kanji" }
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
