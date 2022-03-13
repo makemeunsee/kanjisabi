@@ -8,13 +8,18 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 device_query = "*"
+fontconfig = "*"
 jmdict = "*"
 kanji = { git = "https://github.com/makemeunsee/rs-kanji" }
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
-sdl2 = "*"
 tauri-hotkey = "*"
 tesseract = "*"
 tesseract-sys = "*"
 
 [dev-dependencies]
 qt_widgets = "*"
+
+[dependencies.sdl2]
+version = "*"
+default-features = false
+features = ["ttf"]

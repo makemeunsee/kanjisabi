@@ -6,6 +6,7 @@ extern crate tesseract_sys;
 
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
+use fontconfig::Fontconfig;
 use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR, overlay::sdl::Overlay};
 use screenshot::get_screenshot_area;
 use sdl2::pixels::Color;
@@ -18,12 +19,13 @@ struct HotkeysSharedData {
     toggle: Arc<RwLock<bool>>,
     keep_running: Arc<RwLock<bool>>,
     adjust: Arc<RwLock<(i32, i32)>>,
+    // TODO introduce hotkey to copy recognized words to clipboard
 }
 
 fn register_hotkeys() -> Result<HotkeysSharedData> {
     let mut hkm = Helper::new();
 
-    let toggle = Arc::new(RwLock::new(false));
+    let toggle = Arc::new(RwLock::new(true));
     let toggle_w = toggle.clone();
 
     hkm.register_hk(
@@ -128,6 +130,15 @@ fn main() -> Result<()> {
 
     // program constants
 
+    // TODO font family as program arg
+    let font_path = Fontconfig::new()
+        .unwrap()
+        .find("Aozora Mincho", Some("Bold"))
+        .unwrap()
+        .path;
+
+    println!("font path: {:?}", font_path);
+
     let screen_w = sdl_overlay.video_bounds().0;
 
     let twenty_millis = time::Duration::from_millis(20);
@@ -213,15 +224,29 @@ fn main() -> Result<()> {
                 for word in &ocr_words {
                     println!("{:?}", word.text);
                     // highlight each recognized word on screen
-                    let mut canvas = sdl_overlay.new_overlay_canvas(
-                        x + word.x as i32,
-                        y + word.y as i32,
-                        word.w,
-                        word.h,
-                        0.2,
+                    // let mut canvas = sdl_overlay.new_overlay_canvas(
+                    //     x + word.x as i32,
+                    //     y + word.y as i32,
+                    //     word.w,
+                    //     word.h,
+                    //     0.2,
+                    // );
+                    // canvas.set_draw_color(Color::RGB(255, 0, 0));
+                    // canvas.clear();
+
+                    // display recognized text over its source on screen
+                    let mut canvas = sdl_overlay.new_text_overlay_canvas(
+                        &font_path,
+                        Color::RGB(20, 30, 0),
+                        Color::RGB(240, 240, 230),
+                        &word.text,
+                        // TODO hotkey for font scaling
+                        (word.h as f32 * 1.) as u16,
                     );
-                    canvas.set_draw_color(Color::RGB(255, 0, 0));
-                    canvas.clear();
+                    canvas.window_mut().set_position(
+                        sdl2::video::WindowPos::Positioned(x + word.x as i32),
+                        sdl2::video::WindowPos::Positioned(y + word.y as i32),
+                    );
                     canvas.present();
                     // store the canvas so it doesn't go out of scope at the end of the current iteration
                     canvases.push(canvas);

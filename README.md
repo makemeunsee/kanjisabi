@@ -15,7 +15,10 @@ Powered by:
 ## Requirements
 
 TODO
-* Tesseract libs
+
+* Tesseract + jpn libs
+* Aozora Mincho font, until a way to specify the render font is implemented
+* fontconfig
 * ??
 
 ## Usage

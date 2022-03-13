@@ -1,6 +1,7 @@
 extern crate sdl2;
 
 use anyhow::Result;
+use fontconfig::Fontconfig;
 use kanjisabi::hotkey::Helper;
 use kanjisabi::overlay::sdl::Overlay;
 use sdl2::pixels::Color;
@@ -22,10 +23,23 @@ pub fn main() -> Result<()> {
 
     let lets_quit = move || quit_r.read().map_or(false, |x| *x);
 
+    let font_path = Fontconfig::new()
+        .unwrap()
+        .find("Aozora Mincho", Some("Bold"))
+        .unwrap()
+        .path;
+
     let sdl_overlay = Overlay::new();
 
-    let mut white_thin = sdl_overlay.new_overlay_canvas(700, 800, 150, 20, 1.);
+    let mut white_thin = sdl_overlay.new_overlay_canvas(700, 800, 150, 250, 1.);
     let mut red_square = sdl_overlay.new_overlay_canvas(1000, 500, 300, 300, 0.);
+    let mut text = sdl_overlay.new_text_overlay_canvas(
+        font_path,
+        Color::RGB(50, 255, 0),
+        Color::RGB(0, 0, 50),
+        &"Aæïůƀłいぇコーピ饅頭".to_owned(),
+        48,
+    );
 
     let mut i = 0;
     while !lets_quit() {
@@ -44,6 +58,8 @@ pub fn main() -> Result<()> {
         red_square.clear();
         red_square.set_draw_color(Color::RGB(255, 0, 0));
         red_square.present();
+
+        text.present();
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }

@@ -92,6 +92,7 @@ fn from_word_seq(seq: &Vec<&OCRWord>) -> JpnWord {
     let mut w = 0;
     let mut h = 0;
     let mut text = "".to_string();
+    // TODO average out ys and hs, as tesseract jpn bounds are often off; ask tesseract? https://github.com/tesseract-ocr/tesseract#support
     for word in seq {
         x = std::cmp::min(x, word.x as i32);
         y = std::cmp::min(y, word.y as i32);
