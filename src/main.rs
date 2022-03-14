@@ -316,6 +316,10 @@ impl App {
     }
 
     fn perform_ocr(self: &mut Self) {
+        // TODO it feels very wrong to create windows on the fly. maybe:
+        // * create a reserve upfront, hide/show them on the fly
+        // * ask an SDL guru how to do this properly
+
         // capture the area next to the mouse cursor
         self.capture_x = self.mouse_pos.0;
         self.capture_y = std::cmp::max(0, self.mouse_pos.1 - self.capture_h);
@@ -369,8 +373,13 @@ impl App {
         // store the capture area highlight so it does not go out of scope
         self.highlights.push(capture_highlight);
 
-        // display the words read over the words on screen
+        self.draw_hints();
+    }
+
+    fn draw_hints(self: &mut Self) {
         let (family, style) = &self.fonts[self.font_idx];
+
+        // display the words read over the words on screen
         self.covers = create_covers(
             &self.sdl_helper,
             &font_path(&self.fc, family, Some(style)).unwrap(),
@@ -414,17 +423,8 @@ impl App {
 
                     if adjust_font_size(self.hks.adjust_font_size.clone(), &mut self.font_scale) {
                         // user changed the font scaling, re-create covers & translations from current OCR results
-                        let (family, style) = &self.fonts[self.font_idx];
-                        self.covers = create_covers(
-                            &self.sdl_helper,
-                            &font_path(&self.fc, family, Some(style)).unwrap(),
-                            &self.ocr_words,
-                            self.font_scale,
-                            self.capture_x,
-                            self.capture_y,
-                        );
-                        // TODO
-                        // self.translations = ...
+
+                        self.draw_hints();
                     }
 
                     if cycle_font(
@@ -433,18 +433,10 @@ impl App {
                         self.fonts.len(),
                     ) {
                         let (family, style) = &self.fonts[self.font_idx];
-                        println!("font: {} - {}", family, style);
+                        println!("font changed: {} - {}", family, style);
                         // user changed the font, re-create covers & translations from current OCR results
-                        self.covers = create_covers(
-                            &self.sdl_helper,
-                            &font_path(&self.fc, family, Some(style)).unwrap(),
-                            &self.ocr_words,
-                            self.font_scale,
-                            self.capture_x,
-                            self.capture_y,
-                        );
-                        // TODO
-                        // self.translations = ...
+
+                        self.draw_hints();
                     }
                 }
 
@@ -468,7 +460,8 @@ fn main() -> Result<()> {
     let sdl_helper = Overlay::new();
     let screen_w = sdl_helper.video_bounds().0;
 
-    // TODO font family as program arg
+    // TODO font family & key combos as program args / file config
+
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
 
