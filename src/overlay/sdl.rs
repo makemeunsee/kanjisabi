@@ -76,7 +76,7 @@ impl Overlay {
             .load_font(font_path, point_size)
             .unwrap()
             .render(text)
-            .solid(color_fg)
+            .blended(color_fg)
             .unwrap();
 
         let window = self
@@ -99,11 +99,11 @@ impl Overlay {
 
         let creator = canvas.texture_creator();
         let texture = surface.as_texture(&creator).unwrap();
-        
+
         canvas.set_draw_color(color_bg);
         canvas.clear();
         let _ = canvas.copy(&texture, None, None);
-        
+
         canvas
     }
 }
