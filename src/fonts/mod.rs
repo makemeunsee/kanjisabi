@@ -1,9 +1,13 @@
 use std::{
     collections::{BTreeMap, HashSet},
-    ffi::CStr,
+    ffi::CStr, path::PathBuf,
 };
 
 use fontconfig::{Fontconfig, Pattern};
+
+pub fn font_path(fc: &Fontconfig, family: &str, style: Option<&str>) -> Option<PathBuf> {
+    fc.find(family, style).map(|f| f.path)
+}
 
 pub fn japanese_font_families_and_styles(fc: &Fontconfig) -> BTreeMap<String, HashSet<String>> {
     fontconfig::list_fonts(&Pattern::new(&fc), None)
@@ -24,4 +28,15 @@ pub fn japanese_font_families_and_styles(fc: &Fontconfig) -> BTreeMap<String, Ha
                 acc
             },
         )
+}
+
+pub fn japanese_font_families_and_styles_flat(fc: &Fontconfig) -> Vec<(String, String)> {
+    japanese_font_families_and_styles(fc)
+        .into_iter()
+        .flat_map(|e| {
+            e.1.iter()
+                .map(|style| (e.0.to_owned(), style.to_owned()))
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }

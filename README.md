@@ -27,6 +27,7 @@ TODO
 * `ctrl` + `alt` + `T`: toggle OCR and hints
 * `ctrl` + `alt` + `up`|`right`|`down`|`left`: adjust OCR capture area
 * `ctrl` + `alt` + `-`|`=`: adjust overlay font scaling
+* `ctrl` + `alt` + `N`|`P`: cycle through available fonts supporting Japanese
 
 ## Acknowledgments
 

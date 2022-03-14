@@ -7,6 +7,7 @@ extern crate tesseract_sys;
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
+use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
 use kanjisabi::ocr::jpn::JpnWord;
 use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR, overlay::sdl::Overlay};
 use screenshot::get_screenshot_area;
@@ -24,7 +25,7 @@ struct HotkeysSharedData {
     keep_running: Arc<RwLock<bool>>,
     adjust_capture: Arc<RwLock<(i32, i32)>>,
     adjust_font_size: Arc<RwLock<i32>>,
-    next_font: Arc<RwLock<bool>>,
+    cycle_font: Arc<RwLock<i32>>,
     // TODO introduce hotkey to copy recognized words to clipboard
 }
 
@@ -127,15 +128,26 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
         },
     )?;
 
-    let next_font = Arc::new(RwLock::new(false));
-    let next_font_w = next_font.clone();
+    let cycle_font = Arc::new(RwLock::new(0));
+    let cycle_font_w1 = cycle_font.clone();
+    let cycle_font_w2 = cycle_font.clone();
 
     hkm.register_hk(
         vec![Modifier::CTRL, Modifier::ALT],
         vec![Key::N],
         move || {
-            if let Ok(mut write_guard) = next_font_w.write() {
-                *write_guard = !*write_guard;
+            if let Ok(mut write_guard) = cycle_font_w1.write() {
+                *write_guard = 1;
+            }
+        },
+    )?;
+
+    hkm.register_hk(
+        vec![Modifier::CTRL, Modifier::ALT],
+        vec![Key::P],
+        move || {
+            if let Ok(mut write_guard) = cycle_font_w2.write() {
+                *write_guard = -1;
             }
         },
     )?;
@@ -146,7 +158,7 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
         keep_running,
         adjust_capture,
         adjust_font_size,
-        next_font,
+        cycle_font,
     })
 }
 
@@ -192,6 +204,19 @@ fn adjust_font_size(adjust: Arc<RwLock<i32>>, font_scale: &mut i32) -> bool {
         } else {
             false
         }
+    } else {
+        false
+    }
+}
+
+fn cycle_font(delta_ref: Arc<RwLock<i32>>, font_idx: &mut usize, max: usize) -> bool {
+    let delta = delta_ref.read().map_or(0, |x| *x);
+    if delta != 0 {
+        if let Ok(mut write_guard) = delta_ref.write() {
+            *write_guard = 0;
+        }
+        *font_idx = ((*font_idx + max) as i32 + delta) as usize % max;
+        true
     } else {
         false
     }
@@ -250,15 +275,17 @@ fn create_covers(
 }
 
 struct App {
-    // constants
-    font_path: PathBuf,
+    // program constants
+    fonts: Vec<(String, String)>,
     screen_w: i32,
     // helpers
     sdl_helper: Overlay,
+    fc: Fontconfig,
     ocr: JpnOCR,
     device_state: DeviceState,
     hks: HotkeysSharedData,
     // states
+    font_idx: usize,
     capture_x: i32,
     capture_y: i32,
     capture_w: i32,
@@ -343,9 +370,10 @@ impl App {
         self.highlights.push(capture_highlight);
 
         // display the words read over the words on screen
+        let (family, style) = &self.fonts[self.font_idx];
         self.covers = create_covers(
             &self.sdl_helper,
-            &self.font_path,
+            &font_path(&self.fc, family, Some(style)).unwrap(),
             &self.ocr_words,
             self.font_scale,
             self.capture_x,
@@ -386,9 +414,30 @@ impl App {
 
                     if adjust_font_size(self.hks.adjust_font_size.clone(), &mut self.font_scale) {
                         // user changed the font scaling, re-create covers & translations from current OCR results
+                        let (family, style) = &self.fonts[self.font_idx];
                         self.covers = create_covers(
                             &self.sdl_helper,
-                            &self.font_path,
+                            &font_path(&self.fc, family, Some(style)).unwrap(),
+                            &self.ocr_words,
+                            self.font_scale,
+                            self.capture_x,
+                            self.capture_y,
+                        );
+                        // TODO
+                        // self.translations = ...
+                    }
+
+                    if cycle_font(
+                        self.hks.cycle_font.clone(),
+                        &mut self.font_idx,
+                        self.fonts.len(),
+                    ) {
+                        let (family, style) = &self.fonts[self.font_idx];
+                        println!("font: {} - {}", family, style);
+                        // user changed the font, re-create covers & translations from current OCR results
+                        self.covers = create_covers(
+                            &self.sdl_helper,
+                            &font_path(&self.fc, family, Some(style)).unwrap(),
                             &self.ocr_words,
                             self.font_scale,
                             self.capture_x,
@@ -420,59 +469,32 @@ fn main() -> Result<()> {
     let screen_w = sdl_helper.video_bounds().0;
 
     // TODO font family as program arg
-    let font_path = Fontconfig::new()
-        .unwrap()
-        .find("Aozora Mincho", Some("Bold"))
-        .unwrap()
-        .path;
-
-    println!("font path: {:?}", font_path);
-
-    let ocr = JpnOCR::new();
-
-    // input helpers
+    let fc = Fontconfig::new().unwrap();
+    let fonts = japanese_font_families_and_styles_flat(&fc);
 
     let device_state = DeviceState::new();
-    let hks = register_hotkeys()?;
-
-    // program states
-
-    // capture area
-    let capture_x = 0;
-    let capture_y = 0;
-    let capture_w = 300;
-    let capture_h = 100;
-
-    // in %
-    let font_scale = 100;
-
-    let elapsed_ticks_since_mouse_moved = 0;
     let mouse_pos = device_state.get_mouse().coords;
 
-    let ocr_words = vec![];
-
-    let highlights = vec![];
-    let covers = vec![];
-    let translations: Vec<Canvas<Window>> = vec![];
-
     let mut app = App {
-        font_path,
+        fc,
+        fonts,
+        font_idx: 0,
         screen_w,
         sdl_helper,
-        ocr,
+        ocr: JpnOCR::new(),
         device_state,
-        hks,
-        capture_x,
-        capture_y,
-        capture_w,
-        capture_h,
-        font_scale,
-        elapsed_ticks_since_mouse_moved,
+        hks: register_hotkeys()?,
+        capture_x: 0,
+        capture_y: 0,
+        capture_w: 300,
+        capture_h: 100,
+        font_scale: 100,
+        elapsed_ticks_since_mouse_moved: 0,
         mouse_pos,
-        ocr_words,
-        highlights,
-        covers,
-        translations,
+        ocr_words: vec![],
+        highlights: vec![],
+        covers: vec![],
+        translations: vec![],
     };
 
     app.run()
