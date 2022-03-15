@@ -400,15 +400,16 @@ impl App {
 
         while self.keep_running() {
             if self.ocr_on() {
-                self.capture_area.window_mut().show();
                 let pos = self.device_state.get_mouse().coords;
                 if self.mouse_pos != pos {
                     // mouse has moved, reset everything
                     self.mouse_pos = pos;
                     self.elapsed_ticks_since_mouse_moved = 0;
+                    self.capture_area.window_mut().hide();
                     self.reset_ocr();
                 } else {
                     // mouse hasn't moved
+                    self.capture_area.window_mut().show();
                     self.elapsed_ticks_since_mouse_moved += 1;
 
                     if adjust_capture_area(
@@ -445,8 +446,8 @@ impl App {
                     self.perform_ocr();
                 }
             } else {
-                self.capture_area.window_mut().hide();
                 // OCR is disabled, clear any on-screen hints
+                self.capture_area.window_mut().hide();
                 self.reset_ocr();
             }
             std::thread::sleep(twenty_millis);
