@@ -33,11 +33,13 @@ pub fn main() -> Result<()> {
 
     let mut white_thin = sdl_overlay.new_overlay_canvas(700, 800, 150, 250, 1.);
     let mut red_square = sdl_overlay.new_overlay_canvas(1000, 500, 300, 300, 0.);
-    let mut text = sdl_overlay.new_text_overlay_canvas(
+    let mut text = sdl_overlay.new_overlay_canvas(1000, 800, 0, 0, 1.);
+    sdl_overlay.print_on_canvas(
+        &mut text,
+        "Aæïůƀłいぇコーピ饅頭",
         font_path,
         Color::RGB(50, 255, 0),
         Color::RGB(0, 0, 50),
-        &"Aæïůƀłいぇコーピ饅頭".to_owned(),
         48,
     );
 

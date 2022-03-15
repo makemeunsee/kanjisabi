@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, HashSet},
-    ffi::CStr, path::PathBuf,
+    ffi::CStr,
+    path::PathBuf,
 };
 
 use fontconfig::{Fontconfig, Pattern};

@@ -14,7 +14,6 @@ use screenshot::get_screenshot_area;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::{Window, WindowPos};
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time;
 use tauri_hotkey::{Key, Modifier};
@@ -222,58 +221,6 @@ fn cycle_font(delta_ref: Arc<RwLock<i32>>, font_idx: &mut usize, max: usize) -> 
     }
 }
 
-fn create_highlights(
-    sdl_helper: &Overlay,
-    ocr_words: &Vec<JpnWord>,
-    x: i32,
-    y: i32,
-) -> Vec<Canvas<Window>> {
-    ocr_words
-        .into_iter()
-        .map(|word| {
-            let mut canvas = sdl_helper.new_overlay_canvas(
-                x + word.x as i32,
-                y + word.y as i32,
-                word.w,
-                word.h,
-                0.2,
-            );
-            canvas.set_draw_color(Color::RGB(255, 0, 0));
-            canvas.clear();
-            canvas.present();
-            canvas
-        })
-        .collect()
-}
-
-fn create_covers(
-    sdl_helper: &Overlay,
-    font_path: &PathBuf,
-    ocr_words: &Vec<JpnWord>,
-    font_scale: i32,
-    x: i32,
-    y: i32,
-) -> Vec<Canvas<Window>> {
-    ocr_words
-        .into_iter()
-        .map(|word| {
-            let mut canvas = sdl_helper.new_text_overlay_canvas(
-                font_path,
-                Color::RGB(20, 30, 0),
-                Color::RGB(240, 240, 230),
-                &word.text,
-                (word.h as f32 * font_scale as f32 / 100.) as u16,
-            );
-            canvas.window_mut().set_position(
-                sdl2::video::WindowPos::Positioned(x + word.x as i32),
-                sdl2::video::WindowPos::Positioned(y + word.y as i32),
-            );
-            canvas.present();
-            canvas
-        })
-        .collect()
-}
-
 struct App {
     // program constants
     fonts: Vec<(String, String)>,
@@ -302,10 +249,16 @@ struct App {
 
 impl App {
     fn reset_ocr(self: &mut Self) {
-        self.highlights.clear();
-        self.covers.clear();
-        self.translations.clear();
         self.ocr_words.clear();
+        for highlight in &mut self.highlights {
+            highlight.window_mut().hide();
+        }
+        for cover in &mut self.covers {
+            cover.window_mut().hide();
+        }
+        for translation in &mut self.translations {
+            translation.window_mut().hide();
+        }
     }
 
     fn keep_running(self: &Self) -> bool {
@@ -317,9 +270,7 @@ impl App {
     }
 
     fn perform_ocr(self: &mut Self) {
-        // TODO it feels very wrong to create windows on the fly. maybe:
-        // * create a reserve upfront, hide/show them on the fly
-        // * ask an SDL guru how to do this properly
+        // TODO SDL code feels crude/hacky; eventually ask an SDL guru how to do this the better way
 
         // capture the area next to the mouse cursor
         self.capture_x = self.mouse_pos.0;
@@ -365,12 +316,17 @@ impl App {
         }
 
         // highlight the words found on screen
-        self.highlights = create_highlights(
-            &self.sdl_helper,
-            &self.ocr_words,
-            self.capture_x,
-            self.capture_y,
-        );
+        for (highlight, word) in self.highlights.iter_mut().zip(self.ocr_words.iter()) {
+            highlight.set_draw_color(Color::RGB(255, 0, 0));
+            highlight.clear();
+            highlight.present();
+            highlight.window_mut().set_position(
+                WindowPos::Positioned(self.capture_x + word.x as i32),
+                WindowPos::Positioned(self.capture_y + word.y as i32),
+            );
+            let _ = highlight.window_mut().set_size(word.w, word.h);
+            highlight.window_mut().show();
+        }
 
         self.draw_hints();
     }
@@ -378,15 +334,23 @@ impl App {
     fn draw_hints(self: &mut Self) {
         let (family, style) = &self.fonts[self.font_idx];
 
-        // display the words read over the words on screen
-        self.covers = create_covers(
-            &self.sdl_helper,
-            &font_path(&self.fc, family, Some(style)).unwrap(),
-            &self.ocr_words,
-            self.font_scale,
-            self.capture_x,
-            self.capture_y,
-        );
+        // display the OCR results over the words on screen
+        for (cover, word) in self.covers.iter_mut().zip(self.ocr_words.iter()) {
+            self.sdl_helper.print_on_canvas(
+                cover,
+                &word.text,
+                &font_path(&self.fc, family, Some(style)).unwrap(),
+                Color::RGB(20, 30, 0),
+                Color::RGB(240, 240, 230),
+                (word.h as f32 * self.font_scale as f32 / 100.) as u16,
+            );
+            cover.present();
+            cover.window_mut().set_position(
+                WindowPos::Positioned(self.capture_x + word.x as i32),
+                WindowPos::Positioned(self.capture_y + word.y as i32),
+            );
+            cover.window_mut().show();
+        }
 
         // TODO
         // translations = ...
@@ -474,6 +438,30 @@ fn main() -> Result<()> {
     capture_area.set_draw_color(Color::RGB(0, 255, 0));
     capture_area.window_mut().hide();
 
+    let new_hidden_window = |opacity| {
+        let sdl_helper = &sdl_helper;
+        move || {
+            let mut c = sdl_helper.new_overlay_canvas(mouse_pos.0, mouse_pos.0, 0, 0, opacity);
+            c.window_mut().hide();
+            c
+        }
+    };
+
+    // create a reserve of 10 windows for highlighting recognized text on screen
+    let highlights = std::iter::repeat_with(new_hidden_window(0.2))
+        .take(10)
+        .collect();
+
+    // create a reserve of 10 windows for overlaying the results of OCR
+    let covers = std::iter::repeat_with(new_hidden_window(1.))
+        .take(10)
+        .collect();
+
+    // create a reserve of 10 windows for overlaying the final translation
+    let translations = std::iter::repeat_with(new_hidden_window(1.))
+        .take(10)
+        .collect();
+
     let mut app = App {
         fc,
         fonts,
@@ -492,9 +480,9 @@ fn main() -> Result<()> {
         mouse_pos,
         ocr_words: vec![],
         capture_area,
-        highlights: vec![],
-        covers: vec![],
-        translations: vec![],
+        highlights,
+        covers,
+        translations,
     };
 
     app.run()

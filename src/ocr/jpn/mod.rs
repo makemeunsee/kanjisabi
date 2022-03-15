@@ -3,12 +3,13 @@ use std::collections::BTreeMap;
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
+// TODO probably an overkill to use a lib for this; filter Unicode range directly instead
 use kanji::{is_hiragana, is_kanji, is_katakana};
 
 pub struct JpnOCR {
     ocr: OCR,
     threshold: f32,
-    discriminator: fn(&String) -> bool,
+    discriminator: fn(&str) -> bool,
 }
 
 pub struct JpnWord {

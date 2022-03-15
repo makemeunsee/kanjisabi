@@ -60,15 +60,15 @@ impl Overlay {
         canvas
     }
 
-    pub fn new_text_overlay_canvas<P>(
+    pub fn print_on_canvas<P>(
         self: &Self,
+        canvas: &mut Canvas<Window>,
+        text: &str,
         font_path: P,
         color_fg: Color,
         color_bg: Color,
-        text: &String,
         point_size: u16,
-    ) -> Canvas<Window>
-    where
+    ) where
         P: AsRef<Path>,
     {
         let surface = self
@@ -79,31 +79,14 @@ impl Overlay {
             .blended(color_fg)
             .unwrap();
 
-        let window = self
-            .video_subsystem
-            .window("sdl_text_overlay", surface.width(), surface.height())
-            .set_window_flags(
-                SDL_WindowFlags::SDL_WINDOW_ALWAYS_ON_TOP as u32
-                    | SDL_WindowFlags::SDL_WINDOW_BORDERLESS as u32
-                    | SDL_WindowFlags::SDL_WINDOW_TOOLTIP as u32,
-            )
-            .build()
-            .unwrap();
-
-        let mut canvas = window
-            .into_canvas()
-            .accelerated()
-            .present_vsync()
-            .build()
-            .unwrap();
-
         let creator = canvas.texture_creator();
         let texture = surface.as_texture(&creator).unwrap();
 
+        let _ = canvas
+            .window_mut()
+            .set_size(surface.width(), surface.height());
         canvas.set_draw_color(color_bg);
         canvas.clear();
         let _ = canvas.copy(&texture, None, None);
-
-        canvas
     }
 }

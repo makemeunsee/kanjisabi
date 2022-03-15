@@ -55,7 +55,7 @@ impl Overlay {
         }
     }
 
-    pub fn add_text(self: &Rc<Self>, x: i32, y: i32, size: i32, text: &String) {
+    pub fn add_text(self: &Rc<Self>, x: i32, y: i32, size: i32, text: &str) {
         unsafe {
             let formatted = std::format!("<p style=\"font-size:{}px\">{}</p>", size, text);
             let label = QLabel::from_q_string(&qs(formatted.as_str()));
