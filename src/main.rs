@@ -13,7 +13,7 @@ use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR, overlay::sdl::Overlay};
 use screenshot::get_screenshot_area;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::video::{Window, WindowPos};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time;
@@ -294,6 +294,7 @@ struct App {
     elapsed_ticks_since_mouse_moved: i32,
     mouse_pos: (i32, i32),
     ocr_words: Vec<JpnWord>,
+    capture_area: Canvas<Window>,
     highlights: Vec<Canvas<Window>>,
     covers: Vec<Canvas<Window>>,
     translations: Vec<Canvas<Window>>,
@@ -335,18 +336,19 @@ impl App {
         )
         .unwrap();
 
-        // highlight the capture area
-        let mut capture_highlight = self.sdl_helper.new_overlay_canvas(
-            self.capture_x,
-            self.capture_y,
-            ocr_area.width() as u32,
-            ocr_area.height() as u32,
-            0.2,
+        // highlight the capture area on screen
+        self.capture_area.window_mut().set_position(
+            WindowPos::Positioned(self.capture_x),
+            WindowPos::Positioned(self.capture_y),
         );
-        capture_highlight.set_draw_color(Color::RGB(0, 255, 0));
-        capture_highlight.clear();
-        capture_highlight.present();
+        let _ = self
+            .capture_area
+            .window_mut()
+            .set_size(ocr_area.width() as u32, ocr_area.height() as u32);
+        self.capture_area.clear();
+        self.capture_area.present();
 
+        // attempt recognition
         self.ocr_words = self
             .ocr
             .recognize_words(
@@ -369,9 +371,6 @@ impl App {
             self.capture_x,
             self.capture_y,
         );
-
-        // store the capture area highlight so it does not go out of scope
-        self.highlights.push(capture_highlight);
 
         self.draw_hints();
     }
@@ -401,6 +400,7 @@ impl App {
 
         while self.keep_running() {
             if self.ocr_on() {
+                self.capture_area.window_mut().show();
                 let pos = self.device_state.get_mouse().coords;
                 if self.mouse_pos != pos {
                     // mouse has moved, reset everything
@@ -445,6 +445,7 @@ impl App {
                     self.perform_ocr();
                 }
             } else {
+                self.capture_area.window_mut().hide();
                 // OCR is disabled, clear any on-screen hints
                 self.reset_ocr();
             }
@@ -468,6 +469,10 @@ fn main() -> Result<()> {
     let device_state = DeviceState::new();
     let mouse_pos = device_state.get_mouse().coords;
 
+    let mut capture_area = sdl_helper.new_overlay_canvas(mouse_pos.0, mouse_pos.0, 0, 0, 0.2);
+    capture_area.set_draw_color(Color::RGB(0, 255, 0));
+    capture_area.window_mut().hide();
+
     let mut app = App {
         fc,
         fonts,
@@ -485,6 +490,7 @@ fn main() -> Result<()> {
         elapsed_ticks_since_mouse_moved: 0,
         mouse_pos,
         ocr_words: vec![],
+        capture_area,
         highlights: vec![],
         covers: vec![],
         translations: vec![],
