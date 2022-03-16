@@ -242,7 +242,6 @@ struct App {
     mouse_pos: (i32, i32),
     ocr_words: Vec<JpnWord>,
     capture_area: Canvas<Window>,
-    highlights: Vec<Canvas<Window>>,
     covers: Vec<Canvas<Window>>,
     translations: Vec<Canvas<Window>>,
 }
@@ -250,9 +249,6 @@ struct App {
 impl App {
     fn reset_ocr(self: &mut Self) {
         self.ocr_words.clear();
-        for highlight in &mut self.highlights {
-            highlight.window_mut().hide();
-        }
         for cover in &mut self.covers {
             cover.window_mut().hide();
         }
@@ -271,6 +267,7 @@ impl App {
 
     fn perform_ocr(self: &mut Self) {
         // TODO SDL code feels crude/hacky; eventually ask an SDL guru how to do this the better way
+        // TODO already better: draw on the capture area window, at least highlights, to avoid transparency issues
 
         // capture the area next to the mouse cursor
         self.capture_x = self.mouse_pos.0;
@@ -297,7 +294,6 @@ impl App {
             .window_mut()
             .set_size(ocr_area.width() as u32, ocr_area.height() as u32);
         self.capture_area.clear();
-        self.capture_area.present();
 
         // attempt recognition
         self.ocr_words = self
@@ -315,18 +311,9 @@ impl App {
             println!("{:?}", word.text);
         }
 
-        // highlight the words found on screen
-        for (highlight, word) in self.highlights.iter_mut().zip(self.ocr_words.iter()) {
-            highlight.set_draw_color(Color::RGB(255, 0, 0));
-            highlight.clear();
-            highlight.present();
-            highlight.window_mut().set_position(
-                WindowPos::Positioned(self.capture_x + word.x as i32),
-                WindowPos::Positioned(self.capture_y + word.y as i32),
-            );
-            let _ = highlight.window_mut().set_size(word.w, word.h);
-            highlight.window_mut().show();
-        }
+        // TODO draw highlights as rects on the capture area window
+
+        self.capture_area.present();
 
         self.draw_hints();
     }
@@ -336,6 +323,7 @@ impl App {
 
         // display the OCR results over the words on screen
         for (cover, word) in self.covers.iter_mut().zip(self.ocr_words.iter()) {
+            cover.window_mut().show();
             self.sdl_helper.print_on_canvas(
                 cover,
                 &word.text,
@@ -349,7 +337,6 @@ impl App {
                 WindowPos::Positioned(self.capture_x + word.x as i32),
                 WindowPos::Positioned(self.capture_y + word.y as i32),
             );
-            cover.window_mut().show();
         }
 
         // TODO
@@ -388,7 +375,6 @@ impl App {
 
                     if adjust_font_size(self.hks.adjust_font_size.clone(), &mut self.font_scale) {
                         // user changed the font scaling, re-create covers & translations from current OCR results
-
                         self.draw_hints();
                     }
 
@@ -400,7 +386,6 @@ impl App {
                         let (family, style) = &self.fonts[self.font_idx];
                         println!("font changed: {} - {}", family, style);
                         // user changed the font, re-create covers & translations from current OCR results
-
                         self.draw_hints();
                     }
                 }
@@ -434,10 +419,6 @@ fn main() -> Result<()> {
     let device_state = DeviceState::new();
     let mouse_pos = device_state.get_mouse().coords;
 
-    let mut capture_area = sdl_helper.new_overlay_canvas(mouse_pos.0, mouse_pos.0, 0, 0, 0.2);
-    capture_area.set_draw_color(Color::RGB(0, 255, 0));
-    capture_area.window_mut().hide();
-
     let new_hidden_window = |opacity| {
         let sdl_helper = &sdl_helper;
         move || {
@@ -447,10 +428,8 @@ fn main() -> Result<()> {
         }
     };
 
-    // create a reserve of 10 windows for highlighting recognized text on screen
-    let highlights = std::iter::repeat_with(new_hidden_window(0.2))
-        .take(10)
-        .collect();
+    let mut capture_area = new_hidden_window(0.2)();
+    capture_area.set_draw_color(Color::RGB(0, 255, 0));
 
     // create a reserve of 10 windows for overlaying the results of OCR
     let covers = std::iter::repeat_with(new_hidden_window(1.))
@@ -480,7 +459,6 @@ fn main() -> Result<()> {
         mouse_pos,
         ocr_words: vec![],
         capture_area,
-        highlights,
         covers,
         translations,
     };
