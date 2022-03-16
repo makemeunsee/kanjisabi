@@ -13,7 +13,7 @@ pub fn font_path(fc: &Fontconfig, family: &str, style: Option<&str>) -> Option<P
 pub fn japanese_font_families_and_styles(fc: &Fontconfig) -> BTreeMap<String, HashSet<String>> {
     fontconfig::list_fonts(&Pattern::new(&fc), None)
         .iter()
-        .filter(|p| p.get_lang_set().unwrap().contains(&"ja"))
+        .filter(|p| p.lang_set().unwrap().any(|s| s == "ja"))
         .fold(
             BTreeMap::new(),
             |mut acc: BTreeMap<String, HashSet<String>>, p| {
