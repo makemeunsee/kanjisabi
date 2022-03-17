@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
-// TODO probably an overkill to use a lib for this; filter Unicode range directly instead
-use kanji::{is_hiragana, is_kanji, is_katakana};
 
 pub struct JpnOCR {
     ocr: OCR,
@@ -18,6 +16,34 @@ pub struct JpnWord {
     pub y: u32,
     pub w: u32,
     pub h: u32,
+}
+
+fn is_kanji(c: char) -> bool {
+    (c >= '\u{4e00}' && c <= '\u{9ffc}')          // https://www.unicode.org/charts/PDF/U4E00.pdf
+        || (c >= '\u{f900}' && c <= '\u{faff}')   // https://www.unicode.org/charts/PDF/UF900.pdf
+        || (c >= '\u{3400}' && c <= '\u{4dbf}')   // https://www.unicode.org/charts/PDF/U3400.pdf
+        || (c >= '\u{20000}' && c <= '\u{2a6dd}') // https://www.unicode.org/charts/PDF/U3400.pdf
+        || (c >= '\u{2a700}' && c <= '\u{2b734}') // https://www.unicode.org/charts/PDF/U2A700.pdf
+        || (c >= '\u{2b740}' && c <= '\u{2b81d}') // https://www.unicode.org/charts/PDF/U2B740.pdf
+        || (c >= '\u{2b820}' && c <= '\u{2cea1}') // https://www.unicode.org/charts/PDF/U2B820.pdf
+        || (c >= '\u{2ceb0}' && c <= '\u{2ebe0}') // https://www.unicode.org/charts/PDF/U2CEB0.pdf
+        || (c >= '\u{2f800}' && c <= '\u{2fa1d}') // https://www.unicode.org/charts/PDF/U2F800.pdf
+        || (c >= '\u{30000}' && c <= '\u{3134a}') // https://www.unicode.org/charts/PDF/U30000.pdf
+}
+
+fn is_hiragana(c: char) -> bool {
+    c >= '\u{3041}' && c <= '\u{3096}'          // https://www.unicode.org/charts/PDF/U3040.pdf
+        || c == '\u{1b001}'                     // https://www.unicode.org/charts/PDF/U1B000.pdf
+        || c == '\u{1b11f}'                     // https://www.unicode.org/charts/PDF/U1B100.pdf
+        || c >= '\u{1b150}' && c <= '\u{1b152}' // https://www.unicode.org/charts/PDF/U1B130.pdf
+}
+
+fn is_katakana(c: char) -> bool {
+    c >= '\u{30a1}' && c <= '\u{30fa}' || c == '\u{30fc}' // https://www.unicode.org/charts/PDF/U30A0.pdf
+        || c >= '\u{31f0}' && c <= '\u{31ff}'   // https://www.unicode.org/charts/PDF/U31F0.pdf
+        || c >= '\u{ff66}' && c<= '\u{ff9d}'    // https://www.unicode.org/charts/PDF/UFF00.pdf
+        || c == '\u{1b000}'                     // https://www.unicode.org/charts/PDF/U1B000.pdf
+        || c >= '\u{1b164}' && c <= '\u{1b167}' // https://www.unicode.org/charts/PDF/U1B130.pdf
 }
 
 impl JpnOCR {
@@ -63,7 +89,7 @@ impl JpnOCR {
             .collect()
     }
 
-    // digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
+    /// digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
     pub fn from_line(self: &Self, line: &mut Vec<&OCRWord>) -> Vec<JpnWord> {
         line.sort_by(|a, b| a.word_num.cmp(&b.word_num));
         line.into_iter()

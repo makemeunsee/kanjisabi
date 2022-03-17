@@ -36,7 +36,7 @@ pub fn japanese_font_families_and_styles_flat(fc: &Fontconfig) -> Vec<(String, S
         .into_iter()
         .flat_map(|e| {
             e.1.iter()
-                .map(|style| (e.0.to_owned(), style.to_owned()))
+                .map(|style| (e.0.clone(), style.clone()))
                 .collect::<Vec<_>>()
         })
         .collect()
