@@ -15,6 +15,7 @@ Powered by:
 
 ## Requirements
 
+* `sdl2` and `sdl2_ttf`
 * `leptonica` and `tesseract`, via [its Rust bindings](https://docs.rs/tesseract/latest/tesseract/index.html)
 + Tesseract language libs: `tesseract-data-jpn`, `tesseract-data-eng`; `tesseract-data-jpn_vert` can't hurt
 * `fontconfig`
