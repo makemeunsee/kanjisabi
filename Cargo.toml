@@ -22,3 +22,8 @@ qt_widgets = "*"
 version = "*"
 default-features = false
 features = ["ttf"]
+
+[dev-dependencies.x11rb]
+version = "*"
+default-features = false
+features = ["xfixes"]
