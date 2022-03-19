@@ -360,8 +360,11 @@ impl App {
                     self.reset_ocr();
                 } else {
                     // mouse hasn't moved
-                    self.capture_area.window_mut().show();
-                    self.capture_area.present();
+
+                    if self.elapsed_ticks_since_mouse_moved == 1 {
+                        self.capture_area.window_mut().show();
+                        self.capture_area.present();
+                    }
                     self.elapsed_ticks_since_mouse_moved += 1;
 
                     if adjust_capture_area(
