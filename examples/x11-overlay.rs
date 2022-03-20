@@ -1,11 +1,10 @@
-use sdl2::sys::{MapNotify, SubstructureNotifyMask, SubstructureRedirectMask};
+use sdl2::sys::{SubstructureNotifyMask, SubstructureRedirectMask};
 use x11rb::connection::Connection;
 use x11rb::protocol::xfixes::ConnectionExt as _;
 use x11rb::protocol::xfixes::{destroy_region, RegionWrapper, SetWindowShapeRegionRequest};
-use x11rb::protocol::xproto::{ClientMessageEvent, ConnectionExt as _, PropMode};
+use x11rb::protocol::xproto::{ClientMessageEvent, ConnectionExt as _, CreateGCAux, Rectangle};
 use x11rb::protocol::xproto::{ColormapAlloc, ColormapWrapper, CreateWindowAux, WindowClass};
 use x11rb::protocol::{shape, Event};
-use x11rb::wrapper::ConnectionExt as _;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
@@ -42,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         WindowClass::INPUT_OUTPUT,
         visuals.first().unwrap().visual_id,
         &CreateWindowAux::new()
-            .background_pixel(0x30FF0000)
+            .background_pixel(0x00000000)
             .colormap(Some(cw.into_colormap()))
             .override_redirect(Some(1))
             .border_pixel(Some(1))
@@ -114,7 +113,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     conn.map_window(win_id)?;
 
-    let _ = conn.flush();
+    let gc_id = conn.generate_id().unwrap();
+    let gc_aux = CreateGCAux::new().foreground(0x7700FF00);
+    conn.create_gc(gc_id, win_id, &gc_aux).unwrap();
+
+    let _ = conn
+        .poly_fill_rectangle(
+            win_id,
+            gc_id,
+            &[Rectangle {
+                x: 400,
+                y: 500,
+                width: 600,
+                height: 700,
+            }],
+        )
+        .unwrap();
+
+    let _ = conn.flush().unwrap();
 
     let mut always_on_top_sent = false;
 
