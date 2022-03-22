@@ -159,15 +159,15 @@ where
     Ok(())
 }
 
-fn raise_if_below<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
+fn raise_if_not_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
 where
     Conn: RequestConnection + Connection,
 {
     let tree = conn.query_tree(root_win_id)?.reply()?.children;
+    // runs on the assumption that the top most window is the last of the root's children
     if tree.last() != Some(&win_id) {
         let values = ConfigureWindowAux::default().stack_mode(StackMode::ABOVE);
         conn.configure_window(win_id, &values)?;
-        println!("above!");
     }
 
     Ok(())
@@ -176,7 +176,7 @@ where
 fn main() -> Result<()> {
     let (conn, screen_num) = x11rb::connect(None)?;
 
-    let _ = conn.xfixes_query_version(6, 0)?;
+    let _ = conn.xfixes_query_version(100, 0)?;
 
     let screen = &conn.setup().roots[screen_num];
 
@@ -215,7 +215,7 @@ fn main() -> Result<()> {
             println!("Event: {:?}", event);
         } else {
             if i == 0 {
-                raise_if_below(&conn, screen.root, win_id)?;
+                raise_if_not_top(&conn, screen.root, win_id)?;
             }
         }
 
