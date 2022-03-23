@@ -3,18 +3,13 @@ use std::time::Duration;
 
 use anyhow::Result;
 use kanjisabi::hotkey::Helper;
-use sdl2::sys::{SubstructureNotifyMask, SubstructureRedirectMask};
+use kanjisabi::overlay::x11::{always_on_top, input_passthrough, with_name, xfixes_init};
 use tauri_hotkey::Key;
 use x11rb::connection::{Connection, RequestConnection};
-use x11rb::protocol::shape;
-use x11rb::protocol::xfixes::ConnectionExt as _;
-use x11rb::protocol::xfixes::{destroy_region, RegionWrapper, SetWindowShapeRegionRequest};
-use x11rb::protocol::xproto::{
-    AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt as _, CreateGCAux, PropMode,
-    Rectangle, Screen, StackMode,
-};
 use x11rb::protocol::xproto::{ColormapAlloc, ColormapWrapper, CreateWindowAux, WindowClass};
-use x11rb::wrapper::ConnectionExt as _;
+use x11rb::protocol::xproto::{
+    ConfigureWindowAux, ConnectionExt as _, CreateGCAux, Rectangle, Screen, StackMode,
+};
 
 fn create_overlay_window<Conn>(conn: &Conn, screen: &Screen) -> Result<u32>
 where
@@ -62,84 +57,6 @@ where
     Ok(win_id)
 }
 
-/// from https://stackoverflow.com/a/33735384
-fn input_passthrough<Conn>(conn: &Conn, win_id: u32) -> Result<()>
-where
-    Conn: RequestConnection + Connection,
-{
-    let rw = RegionWrapper::create_region(conn, &[])?;
-
-    let set_shape_request = SetWindowShapeRegionRequest {
-        dest: win_id,
-        dest_kind: shape::SK::BOUNDING,
-        x_offset: 0,
-        y_offset: 0,
-        region: 0,
-    };
-    let _ = set_shape_request.send(conn)?;
-
-    let set_shape_request = SetWindowShapeRegionRequest {
-        dest: win_id,
-        dest_kind: shape::SK::INPUT,
-        x_offset: 0,
-        y_offset: 0,
-        region: rw.region(),
-    };
-    let _ = set_shape_request.send(conn)?;
-
-    // TODO: does not fail but now triggers an error event, though it did not when it was inlined in main, ??
-    let _ = destroy_region(conn, rw.region())?;
-
-    Ok(())
-}
-
-/// from https://stackoverflow.com/a/16235920
-/// possible alt: https://github.com/libsdl-org/SDL/blob/85e6500065bbe37e9131c0ff9cd7e5af6d256730/src/video/x11/SDL_x11window.c#L153-L175
-fn always_on_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
-where
-    Conn: RequestConnection + Connection,
-{
-    let wm_state = conn
-        .intern_atom(false, "_NET_WM_STATE".as_bytes())?
-        .reply()?
-        .atom;
-    let wm_state_above = conn
-        .intern_atom(false, "_NET_WM_STATE_ABOVE".as_bytes())?
-        .reply()?
-        .atom;
-
-    const _NET_WM_STATE_ADD: u32 = 1;
-    let event_always_on_top = ClientMessageEvent::new(
-        32,
-        win_id,
-        wm_state,
-        [_NET_WM_STATE_ADD, wm_state_above, 0, 0, 0],
-    );
-    let _ = conn.send_event(
-        false,
-        root_win_id,
-        SubstructureRedirectMask | SubstructureNotifyMask,
-        event_always_on_top,
-    )?;
-
-    Ok(())
-}
-
-fn with_name<Conn>(conn: &Conn, win_id: u32, name: &str) -> Result<()>
-where
-    Conn: RequestConnection + Connection,
-{
-    let _ = conn.change_property8(
-        PropMode::REPLACE,
-        win_id,
-        AtomEnum::WM_NAME,
-        AtomEnum::STRING,
-        name.as_bytes(),
-    )?;
-
-    Ok(())
-}
-
 fn draw_a_rectangle<Conn>(conn: &Conn, win_id: u32) -> Result<()>
 where
     Conn: RequestConnection + Connection,
@@ -179,7 +96,7 @@ where
 fn main() -> Result<()> {
     let (conn, screen_num) = x11rb::connect(None)?;
 
-    let _ = conn.xfixes_query_version(100, 0)?;
+    xfixes_init(&conn);
 
     let screen = &conn.setup().roots[screen_num];
 
@@ -204,8 +121,7 @@ fn main() -> Result<()> {
         if let Ok(mut write_guard) = quit_w.write() {
             *write_guard = true;
         }
-    })
-    .unwrap();
+    })?;
 
     let lets_quit = move || quit_r.read().map_or(false, |x| *x);
 

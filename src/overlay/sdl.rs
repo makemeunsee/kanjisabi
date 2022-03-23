@@ -20,6 +20,10 @@ impl Overlay {
         }
     }
 
+    pub fn current_driver(self: &Self) -> &str {
+        self.video_subsystem.current_video_driver()
+    }
+
     pub fn video_bounds(self: &Self) -> (i32, i32) {
         self.video_subsystem
             .display_usable_bounds(0)

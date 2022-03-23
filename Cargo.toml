@@ -23,7 +23,7 @@ version = "*"
 default-features = false
 features = ["ttf"]
 
-[dev-dependencies.x11rb]
+[dependencies.x11rb]
 version = "*"
 default-features = false
 features = ["xfixes"]
