@@ -10,7 +10,6 @@ pub struct Overlay {
     ctx: Sdl2TtfContext,
 }
 
-// TODO: how to become clickthrough and/or fully focus-less
 impl Overlay {
     pub fn new() -> Overlay {
         let sdl_context = sdl2::init().unwrap();

@@ -25,7 +25,7 @@ struct HotkeysSharedData {
     adjust_capture: Arc<RwLock<(i32, i32)>>,
     adjust_font_size: Arc<RwLock<i32>>,
     cycle_font: Arc<RwLock<i32>>,
-    // TODO introduce hotkey to copy recognized words to clipboard
+    // TODO? introduce hotkey to copy recognized words to clipboard
 }
 
 fn register_hotkeys() -> Result<HotkeysSharedData> {
@@ -266,9 +266,6 @@ impl App {
     }
 
     fn perform_ocr(self: &mut Self) {
-        // TODO SDL code feels crude/hacky; eventually ask an SDL guru how to do this the better way
-        // TODO already better: draw on the capture area window, at least highlights, to avoid transparency issues
-
         // capture the area next to the mouse cursor
         self.capture_x = self.mouse_pos.0;
         self.capture_y = std::cmp::max(0, self.mouse_pos.1 - self.capture_h);
@@ -310,8 +307,6 @@ impl App {
         for word in &self.ocr_words {
             println!("{:?}", word.text);
         }
-
-        // TODO draw highlights as rects on the capture area window
 
         self.capture_area.present();
 
@@ -423,6 +418,8 @@ fn main() -> Result<()> {
     let device_state = DeviceState::new();
     let mouse_pos = device_state.get_mouse().coords;
 
+    // TODO rewrite with only 1 fullscreen, input passthrough window
+    // TODO? introduce hotkey to forcefully bring this unique window to front
     let new_hidden_window = |opacity| {
         let sdl_helper = &sdl_helper;
         move || {
