@@ -62,6 +62,7 @@ where
     Ok(win_id)
 }
 
+/// from https://stackoverflow.com/a/33735384
 fn input_passthrough<Conn>(conn: &Conn, win_id: u32) -> Result<()>
 where
     Conn: RequestConnection + Connection,
@@ -92,6 +93,8 @@ where
     Ok(())
 }
 
+/// from https://stackoverflow.com/a/16235920
+/// possible alt: https://github.com/libsdl-org/SDL/blob/85e6500065bbe37e9131c0ff9cd7e5af6d256730/src/video/x11/SDL_x11window.c#L153-L175
 fn always_on_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
 where
     Conn: RequestConnection + Connection,
@@ -104,8 +107,6 @@ where
         .intern_atom(false, "_NET_WM_STATE_ABOVE".as_bytes())?
         .reply()?
         .atom;
-
-    println!("{} - {}", wm_state, wm_state_above);
 
     const _NET_WM_STATE_ADD: u32 = 1;
     let event_always_on_top = ClientMessageEvent::new(
@@ -159,6 +160,8 @@ where
     Ok(())
 }
 
+/// original hack, as `always_on_top` patterns are not fully effective with Xmonad
+/// not tested on other WMs yet
 fn raise_if_not_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
 where
     Conn: RequestConnection + Connection,
