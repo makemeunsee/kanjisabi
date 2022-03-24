@@ -15,11 +15,15 @@ Powered by:
 
 ## Requirements
 
-* `sdl2` and `sdl2_ttf`
-* `leptonica` and `tesseract`, via [its Rust bindings](https://docs.rs/tesseract/latest/tesseract/index.html)
-+ Tesseract language libs: `tesseract-data-jpn`, `tesseract-data-eng`; `tesseract-data-jpn_vert` can't hurt
-* `fontconfig`
-* Japanese fonts installed, e.g. `Aozora Mincho`, `Source Han Sans`, ...
+* Running on the system:
+    * A compositor, e.g. `picom`, to handle transparency across windows; should only matter to people running tiling windows managers such as `xmonad` or `i3`
+    * `X11`, until the `input passthrough` logic is implemented for other SDL drivers
+* Installed on the system:
+    * `sdl2` and `sdl2_ttf`
+    * `leptonica` and `tesseract`
+    + Tesseract language libs: `tesseract-data-jpn`, `tesseract-data-eng`; `tesseract-data-jpn_vert` can't hurt
+    * `fontconfig`
+    * Japanese fonts, e.g. `Aozora Mincho`, `Source Han Sans`, ...
 
 ## Usage
 
