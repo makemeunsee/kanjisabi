@@ -225,6 +225,7 @@ struct App {
     // program constants
     fonts: Vec<(String, String)>,
     screen_w: i32,
+    screen_h: i32,
     // helpers
     sdl_helper: Overlay,
     fc: Fontconfig,
@@ -408,7 +409,7 @@ impl App {
 fn main() -> Result<()> {
     // display helper
     let sdl_helper = Overlay::new();
-    let screen_w = sdl_helper.video_bounds().0;
+    let (screen_w, screen_h) = sdl_helper.video_bounds();
 
     // TODO font family & key combos as program args / file config
 
@@ -447,6 +448,7 @@ fn main() -> Result<()> {
         fonts,
         font_idx: 0,
         screen_w,
+        screen_h,
         sdl_helper,
         ocr: JpnOCR::new(),
         device_state,

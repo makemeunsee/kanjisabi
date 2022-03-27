@@ -1,20 +1,21 @@
 use std::path::Path;
 
 use sdl2::{
-    pixels::Color, render::Canvas, sys::SDL_WindowFlags, ttf::Sdl2TtfContext, video::Window,
-    VideoSubsystem,
+    pixels::Color, rect::Rect, render::Canvas, sys::SDL_WindowFlags, ttf::Sdl2TtfContext,
+    video::Window, VideoSubsystem,
 };
 
 pub struct Overlay {
-    video_subsystem: VideoSubsystem,
+    pub video_subsystem: VideoSubsystem,
     ctx: Sdl2TtfContext,
 }
 
 impl Overlay {
     pub fn new() -> Overlay {
         let sdl_context = sdl2::init().unwrap();
+        let video_subsystem = sdl_context.video().unwrap();
         Overlay {
-            video_subsystem: sdl_context.video().unwrap(),
+            video_subsystem,
             ctx: sdl2::ttf::init().unwrap(),
         }
     }
@@ -74,7 +75,7 @@ impl Overlay {
     ) where
         P: AsRef<Path>,
     {
-        let surface = self
+        let mut surface = self
             .ctx
             .load_font(font_path, point_size)
             .unwrap()
@@ -85,9 +86,11 @@ impl Overlay {
         let creator = canvas.texture_creator();
         let texture = surface.as_texture(&creator).unwrap();
 
+        canvas.set_blend_mode(sdl2::render::BlendMode::Add);
         let _ = canvas
             .window_mut()
             .set_size(surface.width(), surface.height());
+
         canvas.set_draw_color(color_bg);
         canvas.clear();
         let _ = canvas.copy(&texture, None, None);

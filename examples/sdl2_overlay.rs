@@ -41,13 +41,14 @@ pub fn main() -> Result<()> {
     }
 
     let mut red_square = sdl_overlay.new_overlay_canvas(1000, 500, 300, 300, 0.);
+
     let mut text = sdl_overlay.new_overlay_canvas(1000, 800, 0, 0, 1.);
     sdl_overlay.print_on_canvas(
         &mut text,
         "Aæïůƀłいぇコーピ饅頭",
         font_path,
-        Color::RGB(50, 255, 0),
-        Color::RGB(0, 0, 50),
+        Color::RGBA(50, 255, 0, 255),
+        Color::RGBA(0, 0, 50, 0),
         48,
     );
     text.present();

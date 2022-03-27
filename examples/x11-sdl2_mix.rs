@@ -2,7 +2,9 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::Result;
+use fontconfig::Fontconfig;
 use kanjisabi::hotkey::Helper;
+use kanjisabi::overlay::sdl::Overlay;
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, raise_if_not_top, with_name, xfixes_init,
 };
@@ -15,16 +17,16 @@ where
     Conn: RequestConnection + Connection,
 {
     let gc_id = conn.generate_id()?;
-    let gc_aux = CreateGCAux::new().foreground(0x14FF0000);
+    let gc_aux = CreateGCAux::new().foreground(0xFFFF0000);
     conn.create_gc(gc_id, win_id, &gc_aux)?;
     let _ = conn.poly_fill_rectangle(
         win_id,
         gc_id,
         &[Rectangle {
-            x: 100,
-            y: 200,
-            width: 300,
-            height: 400,
+            x: 0,
+            y: 1000,
+            width: 2048,
+            height: 200,
         }],
     )?;
     Ok(())
@@ -43,11 +45,34 @@ fn main() -> Result<()> {
 
     conn.map_window(win_id)?;
 
-    // window is displayed, we can draw on it
-
-    draw_a_rectangle(&conn, win_id)?;
-
     let _ = conn.flush()?;
+
+    // window is displayed, we can give it to SDL for drawing
+
+    let font_path = Fontconfig::new()
+        .unwrap()
+        .find("Source Han Sans JP", Some("Bold"))
+        .unwrap()
+        .path;
+
+    let sdl_overlay = Overlay::new();
+
+    let sdl_win = unsafe {
+        sdl2::video::Window::from_ll(
+            sdl_overlay.video_subsystem.clone(),
+            sdl2_sys::SDL_CreateWindowFrom(win_id as *const libc::c_void),
+        )
+    };
+    let mut sdl_canvas = sdl_win.into_canvas().build()?;
+    sdl_overlay.print_on_canvas(
+        &mut sdl_canvas,
+        "Aæïůƀłいぇコーピ饅頭",
+        font_path,
+        sdl2::pixels::Color::RGBA(0, 255, 0, 255),
+        sdl2::pixels::Color::RGBA(0, 0, 50, 255),
+        48,
+    );
+    sdl_canvas.present();
 
     let quit = Arc::new(RwLock::new(false));
     let quit_w = quit.clone();

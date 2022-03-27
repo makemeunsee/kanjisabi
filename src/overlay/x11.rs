@@ -7,7 +7,10 @@ use x11rb::protocol::shape;
 use x11rb::protocol::xfixes::{
     destroy_region, ConnectionExt as _, RegionWrapper, SetWindowShapeRegionRequest,
 };
-use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt as _, PropMode, Window};
+use x11rb::protocol::xproto::{
+    AtomEnum, ClientMessageEvent, ColormapAlloc, ColormapWrapper, ConfigureWindowAux,
+    ConnectionExt as _, CreateWindowAux, PropMode, Screen, StackMode, Window, WindowClass,
+};
 use x11rb::wrapper::ConnectionExt as _;
 
 pub fn xfixes_init<Conn>(conn: &Conn)
@@ -125,20 +128,78 @@ where
         let reply = conn
             .get_property(false, w, AtomEnum::WM_NAME, AtomEnum::STRING, 0, 100)?
             .reply()?;
-        let w_name = std::str::from_utf8(reply.value.as_slice())?;
-        if w_name == name {
+        let w_name = std::str::from_utf8(reply.value.as_slice());
+        if w_name == Ok(name) {
             return Ok(w);
         }
         let reply = conn
             .get_property(false, w, net_wm_name, utf8_string, 0, 100)?
             .reply()?;
-        let w_name = std::str::from_utf8(reply.value.as_slice())?;
-        if w_name == name {
+        let w_name = std::str::from_utf8(reply.value.as_slice());
+        if w_name == Ok(name) {
             return Ok(w);
         }
     }
 
     Err(anyhow::anyhow!("no window for name {}", name))
+}
+
+/// original hack, as `always_on_top` patterns are not fully effective with Xmonad
+/// not tested on other WMs yet
+pub fn raise_if_not_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
+where
+    Conn: RequestConnection + Connection,
+{
+    let tree = conn.query_tree(root_win_id)?.reply()?.children;
+    // runs on the assumption that the top most window is the last of the root's children
+    if tree.last() != Some(&win_id) {
+        let values = ConfigureWindowAux::default().stack_mode(StackMode::ABOVE);
+        conn.configure_window(win_id, &values)?;
+    }
+
+    Ok(())
+}
+
+pub fn create_overlay_fullscreen_window<Conn>(conn: &Conn, screen: &Screen) -> Result<u32>
+where
+    Conn: RequestConnection + Connection,
+{
+    let depths = &screen.allowed_depths;
+    let visuals = &depths.iter().find(|&d| d.depth == 32).unwrap().visuals;
+
+    let cw = ColormapWrapper::create_colormap(
+        conn,
+        ColormapAlloc::NONE,
+        screen.root,
+        visuals.first().unwrap().visual_id,
+    )?;
+
+    let win_id = conn.generate_id()?;
+
+    conn.create_window(
+        32,
+        win_id,
+        screen.root,
+        0,
+        0,
+        screen.width_in_pixels,
+        screen.height_in_pixels,
+        0,
+        WindowClass::INPUT_OUTPUT,
+        visuals.first().unwrap().visual_id,
+        &CreateWindowAux::new()
+            .background_pixel(0x00000000)
+            .colormap(Some(cw.into_colormap()))
+            .override_redirect(Some(1))
+            .border_pixel(Some(1))
+            .event_mask(0b1_11111111_11111111_11111111),
+    )?;
+
+    input_passthrough(conn, win_id)?;
+
+    always_on_top(conn, screen.root, win_id)?;
+
+    Ok(win_id)
 }
 
 /// connects briefly to the X11 server to find a window by name and make it input passthrough
