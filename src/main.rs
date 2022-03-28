@@ -9,14 +9,20 @@ use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
 use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
 use kanjisabi::ocr::jpn::JpnWord;
-use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR, overlay::sdl::Overlay};
+use kanjisabi::overlay::sdl::print_to_new_pixels;
+use kanjisabi::overlay::x11::{
+    create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window,
+    raise_if_not_top, with_name, xfixes_init,
+};
+use kanjisabi::{hotkey::Helper, ocr::jpn::JpnOCR};
 use screenshot::get_screenshot_area;
-use sdl2::pixels::Color;
-use sdl2::render::Canvas;
-use sdl2::video::{Window, WindowPos};
+use sdl2::ttf::Sdl2TtfContext;
 use std::sync::{Arc, RwLock};
 use std::time;
 use tauri_hotkey::{Key, Modifier};
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::{ConnectionExt as _, Window};
+use x11rb::rust_connection::RustConnection;
 
 struct HotkeysSharedData {
     _hkm_ref: Helper,
@@ -109,7 +115,7 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
 
     hkm.register_hk(
         vec![Modifier::CTRL, Modifier::ALT],
-        vec![Key::EQUAL],
+        vec![Key::PERIOD],
         move || {
             if let Ok(mut write_guard) = adjust_font_size_w_inc.write() {
                 *write_guard = 10;
@@ -119,7 +125,7 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
 
     hkm.register_hk(
         vec![Modifier::CTRL, Modifier::ALT],
-        vec![Key::MINUS],
+        vec![Key::COMMA],
         move || {
             if let Ok(mut write_guard) = adjust_font_size_w_dec.write() {
                 *write_guard = -10;
@@ -224,38 +230,111 @@ fn cycle_font(delta_ref: Arc<RwLock<i32>>, font_idx: &mut usize, max: usize) -> 
 struct App {
     // program constants
     fonts: Vec<(String, String)>,
-    screen_w: i32,
-    screen_h: i32,
+    screen_w: u16,
+    screen_h: u16,
     // helpers
-    sdl_helper: Overlay,
+    sdl2_ttf_ctx: Sdl2TtfContext,
     fc: Fontconfig,
     ocr: JpnOCR,
     device_state: DeviceState,
     hks: HotkeysSharedData,
     // states
+    conn: RustConnection,
+    root_window: Window,
+    window: Window,
     font_idx: usize,
     capture_x: i32,
     capture_y: i32,
     capture_w: i32,
     capture_h: i32,
     font_scale: i32,
-    elapsed_ticks_since_mouse_moved: i32,
-    mouse_pos: (i32, i32),
     ocr_words: Vec<JpnWord>,
-    capture_area: Canvas<Window>,
-    covers: Vec<Canvas<Window>>,
-    translations: Vec<Canvas<Window>>,
 }
 
 impl App {
+    fn clear_overlay(self: &Self) {
+        draw_a_rectangle(
+            &self.conn,
+            self.window,
+            0,
+            0,
+            self.screen_w,
+            self.screen_h,
+            0x00000000,
+        )
+        .unwrap();
+
+        self.conn.flush().unwrap();
+    }
+
+    fn draw_capture_area(self: &Self) {
+        draw_a_rectangle(
+            &self.conn,
+            self.window,
+            self.capture_x as i16,
+            self.capture_y as i16,
+            self.capture_w as u16,
+            self.capture_h as u16,
+            0x20002000,
+        )
+        .unwrap();
+
+        self.conn.flush().unwrap();
+    }
+
+    fn draw_highlights(self: &Self) {
+        for word in &self.ocr_words {
+            draw_a_rectangle(
+                &self.conn,
+                self.window,
+                self.capture_x as i16 + word.x as i16,
+                self.capture_y as i16 + word.y as i16,
+                word.w as u16,
+                word.h as u16,
+                0x20200000,
+            )
+            .unwrap();
+        }
+
+        self.conn.flush().unwrap();
+    }
+
+    fn draw_ocr_words(self: &Self) {
+        let (family, style) = &self.fonts[self.font_idx];
+        for word in &self.ocr_words {
+            let (data, width, height) = print_to_new_pixels(
+                &self.sdl2_ttf_ctx,
+                &word.text,
+                &font_path(&self.fc, family, Some(style)).unwrap(),
+                sdl2::pixels::Color::RGBA(0x20, 0x30, 0x00, 0xFF),
+                sdl2::pixels::Color::RGBA(0xDD, 0xDD, 0xC8, 0xDD),
+                (word.h as f32 * self.font_scale as f32 / 100.) as u16,
+            );
+            paint_rgba_pixels_on_window(
+                &self.conn,
+                self.window,
+                &data,
+                self.capture_x + word.x as i32,
+                self.capture_y + word.y as i32,
+                width,
+                height,
+            )
+            .unwrap();
+        }
+
+        self.conn.flush().unwrap();
+    }
+
+    fn redraw_all(self: &Self) {
+        self.clear_overlay();
+        self.draw_capture_area();
+        self.draw_highlights();
+        self.draw_ocr_words();
+    }
+
     fn reset_ocr(self: &mut Self) {
         self.ocr_words.clear();
-        for cover in &mut self.covers {
-            cover.window_mut().hide();
-        }
-        for translation in &mut self.translations {
-            translation.window_mut().hide();
-        }
+        self.clear_overlay();
     }
 
     fn keep_running(self: &Self) -> bool {
@@ -266,12 +345,12 @@ impl App {
         self.hks.toggle.read().map_or(false, |x| *x)
     }
 
-    fn perform_ocr(self: &mut Self) {
+    fn perform_ocr(self: &mut Self, mouse_x: i32, mouse_y: i32) {
         // capture the area next to the mouse cursor
-        self.capture_x = self.mouse_pos.0;
-        self.capture_y = std::cmp::max(0, self.mouse_pos.1 - self.capture_h);
-        let w = std::cmp::min(self.capture_w, self.screen_w - self.capture_x);
-        let h = std::cmp::min(self.capture_h, std::cmp::max(1, self.mouse_pos.1));
+        self.capture_x = mouse_x;
+        self.capture_y = std::cmp::max(0, mouse_y - self.capture_h);
+        let w = std::cmp::min(self.capture_w, self.screen_w as i32 - self.capture_x);
+        let h = std::cmp::min(self.capture_h, std::cmp::max(1, mouse_y));
 
         let ocr_area = get_screenshot_area(
             0,
@@ -282,16 +361,7 @@ impl App {
         )
         .unwrap();
 
-        // highlight the capture area on screen
-        self.capture_area.window_mut().set_position(
-            WindowPos::Positioned(self.capture_x),
-            WindowPos::Positioned(self.capture_y),
-        );
-        let _ = self
-            .capture_area
-            .window_mut()
-            .set_size(ocr_area.width() as u32, ocr_area.height() as u32);
-        self.capture_area.clear();
+        self.draw_capture_area();
 
         // attempt recognition
         self.ocr_words = self
@@ -305,63 +375,37 @@ impl App {
             )
             .unwrap_or(vec![]);
 
-        for word in &self.ocr_words {
-            println!("{:?}", word.text);
-        }
+        self.draw_highlights();
 
-        self.capture_area.present();
+        self.draw_ocr_words();
 
-        self.draw_hints();
-    }
-
-    fn draw_hints(self: &mut Self) {
-        let (family, style) = &self.fonts[self.font_idx];
-
-        // display the OCR results over the words on screen
-        for (cover, word) in self.covers.iter_mut().zip(self.ocr_words.iter()) {
-            cover.window_mut().show();
-            self.sdl_helper.print_on_canvas(
-                cover,
-                &word.text,
-                &font_path(&self.fc, family, Some(style)).unwrap(),
-                Color::RGB(20, 30, 0),
-                Color::RGB(240, 240, 230),
-                (word.h as f32 * self.font_scale as f32 / 100.) as u16,
-            );
-            cover.present();
-            cover.window_mut().set_position(
-                WindowPos::Positioned(self.capture_x + word.x as i32),
-                WindowPos::Positioned(self.capture_y + word.y as i32),
-            );
-        }
-
-        // TODO
-        // translations = ...
+        // self.draw_translations();
     }
 
     fn run(self: &mut Self) -> Result<()> {
         let twenty_millis = time::Duration::from_millis(20);
 
         // how many ticks with no mouse movement to wait before triggering OCR
-        let ocr_trigger_in_ticks = 2;
+        const OCR_TRIGGER: u32 = 2;
+        // how many ticks in between
+        const WIN_ON_TOP_TRIGGER: u32 = 30;
+
+        let mut mouse_pos = self.device_state.get_mouse().coords;
+
+        let mut tick = 1;
+        let mut ticks_since_mouse_moved = 0;
 
         while self.keep_running() {
             if self.ocr_on() {
                 let pos = self.device_state.get_mouse().coords;
-                if self.mouse_pos != pos {
+                if mouse_pos != pos {
                     // mouse has moved, reset everything
-                    self.mouse_pos = pos;
-                    self.elapsed_ticks_since_mouse_moved = 0;
-                    self.capture_area.window_mut().hide();
+                    mouse_pos = pos;
+                    ticks_since_mouse_moved = 0;
                     self.reset_ocr();
                 } else {
                     // mouse hasn't moved
-
-                    if self.elapsed_ticks_since_mouse_moved == 1 {
-                        self.capture_area.window_mut().show();
-                        self.capture_area.present();
-                    }
-                    self.elapsed_ticks_since_mouse_moved += 1;
+                    ticks_since_mouse_moved += 1;
 
                     if adjust_capture_area(
                         self.hks.adjust_capture.clone(),
@@ -369,13 +413,13 @@ impl App {
                         &mut self.capture_h,
                     ) {
                         // user changed the capture area, reset everything and redo OCR
-                        self.elapsed_ticks_since_mouse_moved = ocr_trigger_in_ticks;
+                        ticks_since_mouse_moved = OCR_TRIGGER;
                         self.reset_ocr();
                     }
 
                     if adjust_font_size(self.hks.adjust_font_size.clone(), &mut self.font_scale) {
                         // user changed the font scaling, re-create covers & translations from current OCR results
-                        self.draw_hints();
+                        self.redraw_all();
                     }
 
                     if cycle_font(
@@ -386,17 +430,20 @@ impl App {
                         let (family, style) = &self.fonts[self.font_idx];
                         println!("font changed: {} - {}", family, style);
                         // user changed the font, re-create covers & translations from current OCR results
-                        self.draw_hints();
+                        self.redraw_all();
                     }
                 }
 
-                if self.elapsed_ticks_since_mouse_moved == ocr_trigger_in_ticks {
+                if ticks_since_mouse_moved == OCR_TRIGGER {
                     // mouse lingered somewhere long enough, trigger OCR and show hints
-                    self.perform_ocr();
+                    self.perform_ocr(mouse_pos.0, mouse_pos.1);
                 }
+                if tick == 0 {
+                    raise_if_not_top(&self.conn, self.root_window, self.window)?;
+                }
+                tick = (tick + 1) % WIN_ON_TOP_TRIGGER;
             } else {
                 // OCR is disabled, clear any on-screen hints
-                self.capture_area.window_mut().hide();
                 self.reset_ocr();
             }
             std::thread::sleep(twenty_millis);
@@ -407,63 +454,44 @@ impl App {
 }
 
 fn main() -> Result<()> {
-    // display helper
-    let sdl_helper = Overlay::new();
-    let (screen_w, screen_h) = sdl_helper.video_bounds();
-
-    // TODO font family & key combos as program args / file config
+    // TODO preferred font family as program args / file config
+    // TODO key combos file config override?
 
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
 
     let device_state = DeviceState::new();
-    let mouse_pos = device_state.get_mouse().coords;
 
-    // TODO rewrite with only 1 fullscreen, input passthrough window
-    // TODO? introduce hotkey to forcefully bring this unique window to front
-    let new_hidden_window = |opacity| {
-        let sdl_helper = &sdl_helper;
-        move || {
-            let mut c = sdl_helper.new_overlay_canvas(mouse_pos.0, mouse_pos.0, 0, 0, opacity);
-            c.window_mut().hide();
-            c
-        }
-    };
+    let (conn, screen_num) = x11rb::connect(None)?;
+    xfixes_init(&conn);
+    let screen = &conn.setup().roots[screen_num];
+    let screen_w = screen.width_in_pixels;
+    let screen_h = screen.height_in_pixels;
+    let root_window = screen.root;
 
-    let mut capture_area = new_hidden_window(0.2)();
-    capture_area.set_draw_color(Color::RGB(0, 255, 0));
-
-    // create a reserve of 10 windows for overlaying the results of OCR
-    let covers = std::iter::repeat_with(new_hidden_window(1.))
-        .take(10)
-        .collect();
-
-    // create a reserve of 10 windows for overlaying the final translation
-    let translations = std::iter::repeat_with(new_hidden_window(1.))
-        .take(10)
-        .collect();
+    let window = create_overlay_fullscreen_window(&conn, &screen)?;
+    with_name(&conn, window, "kanjisabi")?;
+    conn.map_window(window)?;
 
     let mut app = App {
+        conn,
+        sdl2_ttf_ctx: sdl2::ttf::init()?,
         fc,
         fonts,
         font_idx: 0,
         screen_w,
         screen_h,
-        sdl_helper,
         ocr: JpnOCR::new(),
         device_state,
         hks: register_hotkeys()?,
+        root_window,
+        window,
         capture_x: 0,
         capture_y: 0,
         capture_w: 300,
         capture_h: 100,
         font_scale: 100,
-        elapsed_ticks_since_mouse_moved: 0,
-        mouse_pos,
         ocr_words: vec![],
-        capture_area,
-        covers,
-        translations,
     };
 
     app.run()

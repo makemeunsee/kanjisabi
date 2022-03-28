@@ -1,23 +1,24 @@
 use std::path::Path;
 
 use sdl2::{
-    pixels::Color, rect::Rect, render::Canvas, sys::SDL_WindowFlags, ttf::Sdl2TtfContext,
-    video::Window, VideoSubsystem,
+    pixels::{Color, PixelMasks},
+    render::Canvas,
+    surface::Surface,
+    sys::SDL_WindowFlags,
+    ttf::Sdl2TtfContext,
+    video::Window,
+    VideoSubsystem,
 };
 
 pub struct Overlay {
     pub video_subsystem: VideoSubsystem,
-    ctx: Sdl2TtfContext,
 }
 
 impl Overlay {
     pub fn new() -> Overlay {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
-        Overlay {
-            video_subsystem,
-            ctx: sdl2::ttf::init().unwrap(),
-        }
+        Overlay { video_subsystem }
     }
 
     pub fn current_driver(self: &Self) -> &str {
@@ -59,40 +60,133 @@ impl Overlay {
             .build()
             .unwrap();
 
-        let _ = canvas.window_mut().set_opacity(opacity);
+        canvas.window_mut().set_opacity(opacity).unwrap();
 
         canvas
     }
+}
 
-    pub fn print_on_canvas<P>(
-        self: &Self,
-        canvas: &mut Canvas<Window>,
-        text: &str,
-        font_path: P,
-        color_fg: Color,
-        color_bg: Color,
-        point_size: u16,
-    ) where
-        P: AsRef<Path>,
-    {
-        let mut surface = self
-            .ctx
-            .load_font(font_path, point_size)
-            .unwrap()
-            .render(text)
-            .blended(color_fg)
-            .unwrap();
+fn render_text<'a, P>(
+    ctx: &'a Sdl2TtfContext,
+    text: &str,
+    font_path: P,
+    color_fg: Color,
+    point_size: u16,
+) -> Surface<'a>
+where
+    P: AsRef<Path>,
+{
+    ctx.load_font(font_path, point_size)
+        .unwrap()
+        .render(text)
+        .blended(color_fg)
+        .unwrap()
+}
 
-        let creator = canvas.texture_creator();
-        let texture = surface.as_texture(&creator).unwrap();
+// TODO: duck type those? https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=ab7c2d43caffe830e8d71923dbde4061
+fn print_to_window_canvas(source: &Surface, dest: &mut Canvas<Window>) {
+    let creator = dest.texture_creator();
+    let texture = source.as_texture(&creator).unwrap();
+    dest.set_blend_mode(sdl2::render::BlendMode::Add);
+    dest.copy(&texture, None, None).unwrap();
+}
 
-        canvas.set_blend_mode(sdl2::render::BlendMode::Add);
-        let _ = canvas
-            .window_mut()
-            .set_size(surface.width(), surface.height());
+fn print_to_surface_canvas(source: &Surface, dest: &mut Canvas<Surface>) {
+    let creator = dest.texture_creator();
+    let texture = source.as_texture(&creator).unwrap();
+    dest.set_blend_mode(sdl2::render::BlendMode::Add);
+    dest.copy(&texture, None, None).unwrap();
+}
 
+fn print_to_pixels<'a>(
+    source: &Surface,
+    data: &mut [u8],
+    width: u32,
+    height: u32,
+    color_bg: Color,
+) {
+    let target = Surface::from_data_pixelmasks(
+        data,
+        width,
+        height,
+        width * 4,
+        PixelMasks {
+            bpp: 32,
+            rmask: 0x00FF0000,
+            gmask: 0x0000FF00,
+            bmask: 0x000000FF,
+            amask: 0xFF000000,
+        },
+    )
+    .unwrap();
+    let mut target = Canvas::from_surface(target).unwrap();
+
+    target.set_draw_color(color_bg);
+    target.clear();
+
+    print_to_surface_canvas(source, &mut target);
+}
+
+pub fn print_to_new_pixels<P>(
+    ctx: &Sdl2TtfContext,
+    text: &str,
+    font_path: P,
+    color_fg: Color,
+    color_bg: Color,
+    point_size: u16,
+) -> (Vec<u8>, u32, u32)
+where
+    P: AsRef<Path>,
+{
+    let text = render_text(ctx, text, font_path, color_fg, point_size);
+    let width = text.width();
+    let height = text.height();
+
+    let mut data = vec![0 as u8; width as usize * height as usize * 4];
+    print_to_pixels(&text, &mut data, width, height, color_bg);
+
+    (data, width, height)
+}
+
+pub fn print_to_existing_pixels<P>(
+    ctx: &Sdl2TtfContext,
+    text: &str,
+    font_path: &P,
+    color_fg: Color,
+    color_bg: Color,
+    point_size: u16,
+    data: &mut [u8],
+    width: u32,
+    height: u32,
+) where
+    P: AsRef<Path>,
+{
+    let text = render_text(ctx, text, font_path, color_fg, point_size);
+
+    print_to_pixels(&text, data, width, height, color_bg);
+}
+
+pub fn print_to_canvas_and_resize<P>(
+    ctx: &Sdl2TtfContext,
+    canvas: &mut Canvas<Window>,
+    text: &str,
+    font_path: &P,
+    color_fg: Color,
+    color_bg: Option<Color>,
+    point_size: u16,
+) where
+    P: AsRef<Path>,
+{
+    let text = render_text(ctx, text, font_path, color_fg, point_size);
+
+    canvas
+        .window_mut()
+        .set_size(text.width(), text.height())
+        .unwrap();
+    if let Some(color_bg) = color_bg {
         canvas.set_draw_color(color_bg);
         canvas.clear();
-        let _ = canvas.copy(&texture, None, None);
     }
+
+    print_to_window_canvas(&text, canvas);
 }

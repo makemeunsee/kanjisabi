@@ -3,7 +3,7 @@ extern crate sdl2;
 use anyhow::Result;
 use fontconfig::Fontconfig;
 use kanjisabi::hotkey::Helper;
-use kanjisabi::overlay::sdl::Overlay;
+use kanjisabi::overlay::sdl::{print_to_canvas_and_resize, Overlay};
 use kanjisabi::overlay::x11::make_x11_win_input_passthrough;
 use sdl2::pixels::Color;
 use std::sync::{Arc, RwLock};
@@ -30,6 +30,7 @@ pub fn main() -> Result<()> {
         .unwrap()
         .path;
 
+    let sdl2_ttf_ctx = sdl2::ttf::init()?;
     let sdl_overlay = Overlay::new();
 
     let mut white_thin = sdl_overlay.new_overlay_canvas(700, 800, 150, 250, 1.);
@@ -43,12 +44,13 @@ pub fn main() -> Result<()> {
     let mut red_square = sdl_overlay.new_overlay_canvas(1000, 500, 300, 300, 0.);
 
     let mut text = sdl_overlay.new_overlay_canvas(1000, 800, 0, 0, 1.);
-    sdl_overlay.print_on_canvas(
+    print_to_canvas_and_resize(
+        &sdl2_ttf_ctx,
         &mut text,
         "Aæïůƀłいぇコーピ饅頭",
-        font_path,
+        &font_path,
         Color::RGBA(50, 255, 0, 255),
-        Color::RGBA(0, 0, 50, 0),
+        Some(Color::RGBA(0, 0, 50, 0)),
         48,
     );
     text.present();
@@ -57,16 +59,18 @@ pub fn main() -> Result<()> {
     while !lets_quit() {
         i = i + 1;
 
-        let _ = white_thin
+        white_thin
             .window_mut()
-            .set_opacity((i as f32 / 50.).cos() * 0.4 + 0.6);
+            .set_opacity((i as f32 / 50.).cos() * 0.4 + 0.6)
+            .unwrap();
         white_thin.clear();
         white_thin.set_draw_color(Color::RGB(255, 255, 255));
         white_thin.present();
 
-        let _ = red_square
+        red_square
             .window_mut()
-            .set_opacity((i as f32 / 50.).sin() * 0.4 + 0.6);
+            .set_opacity((i as f32 / 50.).sin() * 0.4 + 0.6)
+            .unwrap();
         red_square.clear();
         red_square.set_draw_color(Color::RGB(255, 0, 0));
         red_square.present();

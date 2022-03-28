@@ -4,50 +4,37 @@ use std::time::Duration;
 use anyhow::Result;
 use fontconfig::Fontconfig;
 use kanjisabi::hotkey::Helper;
-use kanjisabi::overlay::sdl::Overlay;
+use kanjisabi::overlay::sdl::{print_to_existing_pixels, print_to_new_pixels};
 use kanjisabi::overlay::x11::{
-    create_overlay_fullscreen_window, raise_if_not_top, with_name, xfixes_init,
+    create_overlay_window, paint_rgba_pixels_on_window, raise_if_not_top, resize_window, with_name,
+    xfixes_init,
 };
 use tauri_hotkey::Key;
-use x11rb::connection::{Connection, RequestConnection};
-use x11rb::protocol::xproto::{ConnectionExt as _, CreateGCAux, Rectangle};
-
-fn draw_a_rectangle<Conn>(conn: &Conn, win_id: u32) -> Result<()>
-where
-    Conn: RequestConnection + Connection,
-{
-    let gc_id = conn.generate_id()?;
-    let gc_aux = CreateGCAux::new().foreground(0xFFFF0000);
-    conn.create_gc(gc_id, win_id, &gc_aux)?;
-    let _ = conn.poly_fill_rectangle(
-        win_id,
-        gc_id,
-        &[Rectangle {
-            x: 0,
-            y: 1000,
-            width: 2048,
-            height: 200,
-        }],
-    )?;
-    Ok(())
-}
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt as _;
 
 fn main() -> Result<()> {
+    let (width0, height0) = (300, 200);
+
+    let sdl2_ttf_ctx = sdl2::ttf::init()?;
+
     let (conn, screen_num) = x11rb::connect(None)?;
-
     xfixes_init(&conn);
-
     let screen = &conn.setup().roots[screen_num];
 
-    let win_id = create_overlay_fullscreen_window(&conn, &screen)?;
+    let win0 = create_overlay_window(&conn, &screen, 50, 50, width0, height0)?;
+    println!("{}", win0);
+    with_name(&conn, win0, "X11 Rust overlay1")?;
+    conn.map_window(win0)?;
 
-    with_name(&conn, win_id, "X11 Rust overlay")?;
+    let win1 = create_overlay_window(&conn, &screen, 50, 50 + height0 as i16, width0, height0)?;
+    println!("{}", win1);
+    with_name(&conn, win1, "X11 Rust overlay2")?;
+    conn.map_window(win1)?;
 
-    conn.map_window(win_id)?;
+    conn.flush()?;
 
-    let _ = conn.flush()?;
-
-    // window is displayed, we can give it to SDL for drawing
+    // X11 context is set up and window is displayed, we can give it to SDL for drawing
 
     let font_path = Fontconfig::new()
         .unwrap()
@@ -55,24 +42,32 @@ fn main() -> Result<()> {
         .unwrap()
         .path;
 
-    let sdl_overlay = Overlay::new();
-
-    let sdl_win = unsafe {
-        sdl2::video::Window::from_ll(
-            sdl_overlay.video_subsystem.clone(),
-            sdl2_sys::SDL_CreateWindowFrom(win_id as *const libc::c_void),
-        )
-    };
-    let mut sdl_canvas = sdl_win.into_canvas().build()?;
-    sdl_overlay.print_on_canvas(
-        &mut sdl_canvas,
-        "Aæïůƀłいぇコーピ饅頭",
-        font_path,
-        sdl2::pixels::Color::RGBA(0, 255, 0, 255),
-        sdl2::pixels::Color::RGBA(0, 0, 50, 255),
-        48,
+    let mut data = vec![0; width0 as usize * height0 as usize * 4];
+    print_to_existing_pixels(
+        &sdl2_ttf_ctx,
+        "fit text to canvas",
+        &font_path,
+        sdl2::pixels::Color::RGBA(0xFF, 0x00, 0x00, 0xFF),
+        sdl2::pixels::Color::RGBA(0x00, 0x20, 0x00, 0x20),
+        96,
+        &mut data,
+        width0 as u32,
+        height0 as u32,
     );
-    sdl_canvas.present();
+    paint_rgba_pixels_on_window(&conn, win0, &data, 0, 0, width0 as u32, height0 as u32)?;
+
+    let (data, width, height) = print_to_new_pixels(
+        &sdl2_ttf_ctx,
+        "stretch canvas to text - 天上天下",
+        &font_path,
+        sdl2::pixels::Color::RGBA(0xFF, 0xDD, 0x00, 0xFF),
+        sdl2::pixels::Color::RGBA(0x00, 0x00, 0x40, 0x40),
+        96,
+    );
+    resize_window(&conn, win1, width, height)?;
+    paint_rgba_pixels_on_window(&conn, win1, &data, 0, 0, width, height)?;
+
+    conn.flush()?;
 
     let quit = Arc::new(RwLock::new(false));
     let quit_w = quit.clone();
@@ -96,7 +91,7 @@ fn main() -> Result<()> {
             println!("Event: {:?}", event);
         } else {
             if i == 0 {
-                raise_if_not_top(&conn, screen.root, win_id)?;
+                raise_if_not_top(&conn, screen.root, win0)?;
             }
         }
 

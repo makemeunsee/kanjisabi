@@ -4,31 +4,11 @@ use std::time::Duration;
 use anyhow::Result;
 use kanjisabi::hotkey::Helper;
 use kanjisabi::overlay::x11::{
-    create_overlay_fullscreen_window, raise_if_not_top, with_name, xfixes_init,
+    create_overlay_window, draw_a_rectangle, raise_if_not_top, with_name, xfixes_init,
 };
 use tauri_hotkey::Key;
-use x11rb::connection::{Connection, RequestConnection};
-use x11rb::protocol::xproto::{ConnectionExt as _, CreateGCAux, Rectangle};
-
-fn draw_a_rectangle<Conn>(conn: &Conn, win_id: u32) -> Result<()>
-where
-    Conn: RequestConnection + Connection,
-{
-    let gc_id = conn.generate_id()?;
-    let gc_aux = CreateGCAux::new().foreground(0x14FF0000);
-    conn.create_gc(gc_id, win_id, &gc_aux)?;
-    let _ = conn.poly_fill_rectangle(
-        win_id,
-        gc_id,
-        &[Rectangle {
-            x: 100,
-            y: 200,
-            width: 300,
-            height: 400,
-        }],
-    )?;
-    Ok(())
-}
+use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt as _;
 
 fn main() -> Result<()> {
     let (conn, screen_num) = x11rb::connect(None)?;
@@ -37,7 +17,8 @@ fn main() -> Result<()> {
 
     let screen = &conn.setup().roots[screen_num];
 
-    let win_id = create_overlay_fullscreen_window(&conn, &screen)?;
+    let win_id = create_overlay_window(&conn, &screen, 50, 50, 200, 200)?;
+    println!("{}", win_id);
 
     with_name(&conn, win_id, "X11 Rust overlay")?;
 
@@ -45,9 +26,12 @@ fn main() -> Result<()> {
 
     // window is displayed, we can draw on it
 
-    draw_a_rectangle(&conn, win_id)?;
+    draw_a_rectangle(&conn, win_id, 0, 0, 200, 50, 0xFFFF0000)?;
+    draw_a_rectangle(&conn, win_id, 0, 50, 200, 50, 0x8000FF00)?;
+    draw_a_rectangle(&conn, win_id, 0, 100, 200, 50, 0x400000FF)?;
+    draw_a_rectangle(&conn, win_id, 0, 150, 200, 50, 0x20202020)?;
 
-    let _ = conn.flush()?;
+    conn.flush()?;
 
     let quit = Arc::new(RwLock::new(false));
     let quit_w = quit.clone();
