@@ -29,6 +29,7 @@ fn is_kanji(c: char) -> bool {
         || (c >= '\u{2ceb0}' && c <= '\u{2ebe0}') // https://www.unicode.org/charts/PDF/U2CEB0.pdf
         || (c >= '\u{2f800}' && c <= '\u{2fa1d}') // https://www.unicode.org/charts/PDF/U2F800.pdf
         || (c >= '\u{30000}' && c <= '\u{3134a}') // https://www.unicode.org/charts/PDF/U30000.pdf
+        || c == '\u{3005}' // 々 - https://www.unicode.org/charts/PDF/U3000.pdf
 }
 
 fn is_hiragana(c: char) -> bool {

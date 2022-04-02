@@ -227,6 +227,23 @@ fn cycle_font(delta_ref: Arc<RwLock<i32>>, font_idx: &mut usize, max: usize) -> 
     }
 }
 
+fn contrast_max(rgba_data: &mut Vec<u8>) {
+    for p in 0..rgba_data.len() / 4 {
+        let r = rgba_data[4 * p];
+        let g = rgba_data[4 * p + 1];
+        let b = rgba_data[4 * p + 2];
+        let mut intensity = ((7471 * b as u32 + 38470 * g as u32 + 19595 * r as u32) >> 16) as u8;
+        if intensity > 128 {
+            intensity = 255;
+        } else {
+            intensity = 0;
+        }
+        rgba_data[4 * p] = intensity;
+        rgba_data[4 * p + 1] = intensity;
+        rgba_data[4 * p + 2] = intensity;
+    }
+}
+
 struct App {
     // program constants
     fonts: Vec<(String, String)>,
@@ -352,7 +369,7 @@ impl App {
         let w = std::cmp::min(self.capture_w, self.screen_w as i32 - self.capture_x);
         let h = std::cmp::min(self.capture_h, std::cmp::max(1, mouse_y));
 
-        let ocr_area = get_screenshot_area(
+        let mut ocr_area = get_screenshot_area(
             0,
             self.capture_x as u32,
             self.capture_y as u32,
@@ -361,13 +378,35 @@ impl App {
         )
         .unwrap();
 
+        // `ocr_area` and `my_data` die together, we're safely unsafe
+        let mut my_data = unsafe {
+            let len = ocr_area.raw_len();
+            let v = std::slice::from_raw_parts(ocr_area.raw_data_mut(), len as usize).to_vec();
+            v
+        };
+
+        // TODO contrast control
+        contrast_max(&mut my_data);
+
+        // visual debug, re-paint captured area after pre-processing
+        // paint_rgba_pixels_on_window(
+        //     &self.conn,
+        //     self.window,
+        //     &my_data,
+        //     self.capture_x,
+        //     self.capture_y,
+        //     w as u32,
+        //     h as u32,
+        // )
+        // .unwrap();
+
         self.draw_capture_area();
 
         // attempt recognition
         self.ocr_words = self
             .ocr
             .recognize_words(
-                ocr_area.as_ref(),
+                &my_data,
                 ocr_area.width() as i32,
                 ocr_area.height() as i32,
                 ocr_area.pixel_width() as i32,
@@ -394,9 +433,11 @@ impl App {
 
         let mut tick = 1;
         let mut ticks_since_mouse_moved = 0;
+        let mut ocr_is_on = false;
 
         while self.keep_running() {
             if self.ocr_on() {
+                ocr_is_on = true;
                 let pos = self.device_state.get_mouse().coords;
                 if mouse_pos != pos {
                     // mouse has moved, reset everything
@@ -442,9 +483,11 @@ impl App {
                     raise_if_not_top(&self.conn, self.root_window, self.window)?;
                 }
                 tick = (tick + 1) % WIN_ON_TOP_TRIGGER;
-            } else {
-                // OCR is disabled, clear any on-screen hints
+            } else if ocr_is_on {
+                // disabling OCR is disabled, clear any on-screen hints
+                ocr_is_on = false;
                 self.reset_ocr();
+                // TODO hide window?
             }
             std::thread::sleep(twenty_millis);
         }

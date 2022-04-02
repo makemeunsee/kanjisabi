@@ -1,0 +1,286 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'kanjisabi'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=kanjisabi",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "kanjisabi",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'kanjisabi'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "kanjisabi",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'kanjisabi'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=kanjisabi",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "kanjisabi",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'qt_overlay'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=qt_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "qt_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'qt_overlay'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=qt_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "qt_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'sdl2_overlay'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=sdl2_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "sdl2_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'sdl2_overlay'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=sdl2_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "sdl2_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tesseract_on_the_fly'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tesseract_on_the_fly",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "tesseract_on_the_fly",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tesseract_on_the_fly'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tesseract_on_the_fly",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "tesseract_on_the_fly",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'fontconfig'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=fontconfig",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "fontconfig",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'fontconfig'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=fontconfig",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "fontconfig",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'x11-sdl2_mix'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=x11-sdl2_mix",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11-sdl2_mix",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'x11-sdl2_mix'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=x11-sdl2_mix",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11-sdl2_mix",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'x11_overlay'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=x11_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'x11_overlay'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=x11_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
