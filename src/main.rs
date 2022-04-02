@@ -7,6 +7,7 @@ extern crate tesseract_sys;
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
+use image::{ImageBuffer, Rgba};
 use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
 use kanjisabi::ocr::jpn::JpnWord;
 use kanjisabi::overlay::sdl::print_to_new_pixels;
@@ -227,23 +228,6 @@ fn cycle_font(delta_ref: Arc<RwLock<i32>>, font_idx: &mut usize, max: usize) -> 
     }
 }
 
-fn contrast_max(rgba_data: &mut Vec<u8>) {
-    for p in 0..rgba_data.len() / 4 {
-        let r = rgba_data[4 * p];
-        let g = rgba_data[4 * p + 1];
-        let b = rgba_data[4 * p + 2];
-        let mut intensity = ((7471 * b as u32 + 38470 * g as u32 + 19595 * r as u32) >> 16) as u8;
-        if intensity > 128 {
-            intensity = 255;
-        } else {
-            intensity = 0;
-        }
-        rgba_data[4 * p] = intensity;
-        rgba_data[4 * p + 1] = intensity;
-        rgba_data[4 * p + 2] = intensity;
-    }
-}
-
 struct App {
     // program constants
     fonts: Vec<(String, String)>,
@@ -366,33 +350,22 @@ impl App {
         // capture the area next to the mouse cursor
         self.capture_x = mouse_x;
         self.capture_y = std::cmp::max(0, mouse_y - self.capture_h);
-        let w = std::cmp::min(self.capture_w, self.screen_w as i32 - self.capture_x);
-        let h = std::cmp::min(self.capture_h, std::cmp::max(1, mouse_y));
+        let w = std::cmp::min(self.capture_w, self.screen_w as i32 - self.capture_x) as u32;
+        let h = std::cmp::min(self.capture_h, std::cmp::max(1, mouse_y)) as u32;
 
-        let mut ocr_area = get_screenshot_area(
-            0,
-            self.capture_x as u32,
-            self.capture_y as u32,
-            w as u32,
-            h as u32,
-        )
-        .unwrap();
+        let ocr_area =
+            get_screenshot_area(0, self.capture_x as u32, self.capture_y as u32, w, h).unwrap();
 
-        // `ocr_area` and `my_data` die together, we're safely unsafe
-        let mut my_data = unsafe {
-            let len = ocr_area.raw_len();
-            let v = std::slice::from_raw_parts(ocr_area.raw_data_mut(), len as usize).to_vec();
-            v
-        };
-
-        // TODO contrast control
-        contrast_max(&mut my_data);
+        let mut img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+            ImageBuffer::from_vec(w, h, ocr_area.as_ref().to_vec()).unwrap();
+        // TODO contrast control?
+        image::imageops::colorops::contrast_in_place(&mut img, 50.);
 
         // visual debug, re-paint captured area after pre-processing
         // paint_rgba_pixels_on_window(
         //     &self.conn,
         //     self.window,
-        //     &my_data,
+        //     img.as_raw(),
         //     self.capture_x,
         //     self.capture_y,
         //     w as u32,
@@ -406,7 +379,7 @@ impl App {
         self.ocr_words = self
             .ocr
             .recognize_words(
-                &my_data,
+                img.as_raw(),
                 ocr_area.width() as i32,
                 ocr_area.height() as i32,
                 ocr_area.pixel_width() as i32,
