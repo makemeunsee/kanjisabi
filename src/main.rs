@@ -9,7 +9,7 @@ use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
-use kanjisabi::ocr::jpn::JpnWord;
+use kanjisabi::ocr::jpn::JpnText;
 use kanjisabi::overlay::sdl::print_to_new_pixels;
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window,
@@ -177,8 +177,8 @@ fn adjust_capture_area(
     let (delta_x, delta_y) = adjust.read().map_or((0, 0), |x| *x);
     if delta_x != 0 || delta_y != 0 {
         let new_capture = (
-            std::cmp::min(500, std::cmp::max(50, *capture_w + delta_x)),
-            std::cmp::min(500, std::cmp::max(50, *capture_h + delta_y)),
+            std::cmp::min(1000, std::cmp::max(50, *capture_w + delta_x)),
+            std::cmp::min(1000, std::cmp::max(50, *capture_h + delta_y)),
         );
         if let Ok(mut write_guard) = adjust.write() {
             *write_guard = (0, 0);
@@ -186,7 +186,6 @@ fn adjust_capture_area(
         if *capture_w != new_capture.0 || *capture_h != new_capture.1 {
             *capture_w = new_capture.0;
             *capture_h = new_capture.1;
-            println!("new capture area: {:?}", (*capture_w, *capture_h));
             true
         } else {
             false
@@ -249,7 +248,7 @@ struct App {
     capture_w: i32,
     capture_h: i32,
     font_scale: i32,
-    ocr_words: Vec<JpnWord>,
+    ocr_results: Vec<JpnText>,
 }
 
 impl App {
@@ -284,7 +283,7 @@ impl App {
     }
 
     fn draw_highlights(self: &Self) {
-        for word in &self.ocr_words {
+        for word in &self.ocr_results {
             draw_a_rectangle(
                 &self.conn,
                 self.window,
@@ -300,23 +299,23 @@ impl App {
         self.conn.flush().unwrap();
     }
 
-    fn draw_ocr_words(self: &Self) {
+    fn draw_ocr_results(self: &Self) {
         let (family, style) = &self.fonts[self.font_idx];
-        for word in &self.ocr_words {
+        for jpn_text in &self.ocr_results {
             let (data, width, height) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
-                &word.text,
+                &jpn_text.words.join("|"),
                 &font_path(&self.fc, family, Some(style)).unwrap(),
                 sdl2::pixels::Color::RGBA(0x20, 0x30, 0x00, 0xFF),
                 sdl2::pixels::Color::RGBA(0xDD, 0xDD, 0xC8, 0xDD),
-                (word.h as f32 * self.font_scale as f32 / 100.) as u16,
+                (jpn_text.h as f32 * self.font_scale as f32 / 100.) as u16,
             );
             paint_rgba_pixels_on_window(
                 &self.conn,
                 self.window,
                 &data,
-                self.capture_x + word.x as i32,
-                self.capture_y + word.y as i32,
+                self.capture_x + jpn_text.x as i32,
+                self.capture_y + jpn_text.y as i32,
                 width,
                 height,
             )
@@ -330,11 +329,11 @@ impl App {
         self.clear_overlay();
         self.draw_capture_area();
         self.draw_highlights();
-        self.draw_ocr_words();
+        self.draw_ocr_results();
     }
 
     fn reset_ocr(self: &mut Self) {
-        self.ocr_words.clear();
+        self.ocr_results.clear();
         self.clear_overlay();
     }
 
@@ -359,7 +358,7 @@ impl App {
         let mut img: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::from_vec(w, h, ocr_area.as_ref().to_vec()).unwrap();
         // TODO contrast control?
-        image::imageops::colorops::contrast_in_place(&mut img, 50.);
+        image::imageops::colorops::contrast_in_place(&mut img, 75.);
 
         // visual debug, re-paint captured area after pre-processing
         // paint_rgba_pixels_on_window(
@@ -376,9 +375,9 @@ impl App {
         self.draw_capture_area();
 
         // attempt recognition
-        self.ocr_words = self
+        self.ocr_results = self
             .ocr
-            .recognize_words(
+            .recognize(
                 img.as_raw(),
                 ocr_area.width() as i32,
                 ocr_area.height() as i32,
@@ -389,7 +388,7 @@ impl App {
 
         self.draw_highlights();
 
-        self.draw_ocr_words();
+        self.draw_ocr_results();
 
         // self.draw_translations();
     }
@@ -507,7 +506,7 @@ fn main() -> Result<()> {
         capture_w: 300,
         capture_h: 100,
         font_scale: 100,
-        ocr_words: vec![],
+        ocr_results: vec![],
     };
 
     app.run()

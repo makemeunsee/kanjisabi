@@ -3,14 +3,17 @@ use std::collections::BTreeMap;
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
+use lindera::tokenizer::Tokenizer;
 
 pub struct JpnOCR {
     ocr: OCR,
     threshold: f32,
     discriminator: fn(&str) -> bool,
+    tokenizer: Tokenizer,
 }
 
-pub struct JpnWord {
+pub struct JpnText {
+    pub words: Vec<String>,
     pub text: String,
     pub x: u32,
     pub y: u32,
@@ -58,24 +61,25 @@ impl JpnOCR {
                 s.chars()
                     .all(|c| is_kanji(c) || is_katakana(c) || is_hiragana(c))
             },
+            tokenizer: Tokenizer::new().unwrap(),
         }
     }
 
-    pub fn recognize_words(
+    pub fn recognize(
         self: &Self,
         frame_data: &[u8],
         width: i32,
         height: i32,
         bytes_per_pixel: i32,
         bytes_per_line: i32,
-    ) -> Result<Vec<JpnWord>> {
+    ) -> Result<Vec<JpnText>> {
         let ocr_words =
             self.ocr
                 .recognize_words(frame_data, width, height, bytes_per_pixel, bytes_per_line)?;
         Ok(self.from_ocr_words(&ocr_words))
     }
 
-    pub fn from_ocr_words(self: &Self, words: &Vec<OCRWord>) -> Vec<JpnWord> {
+    pub fn from_ocr_words(self: &Self, words: &Vec<OCRWord>) -> Vec<JpnText> {
         words
             .into_iter()
             .fold(
@@ -91,7 +95,7 @@ impl JpnOCR {
     }
 
     /// digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
-    pub fn from_line(self: &Self, line: &mut Vec<&OCRWord>) -> Vec<JpnWord> {
+    pub fn from_line(self: &Self, line: &mut Vec<&OCRWord>) -> Vec<JpnText> {
         line.sort_by(|a, b| a.word_num.cmp(&b.word_num));
         line.into_iter()
             .filter(|w| w.conf > self.threshold && (self.discriminator)(&w.text))
@@ -109,30 +113,42 @@ impl JpnOCR {
                 acc
             })
             .into_iter()
-            .map(|w| from_word_seq(&w))
+            .map(|w| self.from_word_seq(&w))
             .collect()
     }
-}
 
-fn from_word_seq(seq: &Vec<&OCRWord>) -> JpnWord {
-    let mut x = std::i32::MAX;
-    let mut y = std::i32::MAX;
-    let mut w = 0;
-    let mut h = 0;
-    let mut text = "".to_string();
-    // TODO average out ys and hs, as tesseract jpn bounds are often off; ask tesseract? https://github.com/tesseract-ocr/tesseract#support
-    for word in seq {
-        x = std::cmp::min(x, word.x as i32);
-        y = std::cmp::min(y, word.y as i32);
-        w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
-        h = std::cmp::max(h, word.h as i32 + word.y as i32 - y);
-        text.push_str(&word.text);
-    }
-    JpnWord {
-        text: text.to_owned(),
-        x: x as u32,
-        y: y as u32,
-        w: w as u32,
-        h: h as u32,
+    fn from_word_seq(self: &Self, seq: &Vec<&OCRWord>) -> JpnText {
+        let mut x = std::i32::MAX;
+        let mut y = std::i32::MAX;
+        let mut w = 0;
+        let mut h = 0;
+        let mut text = "".to_string();
+
+        // TODO average out ys and hs, as tesseract jpn bounds are often off; ask tesseract? https://github.com/tesseract-ocr/tesseract#support
+        for word in seq {
+            x = std::cmp::min(x, word.x as i32);
+            y = std::cmp::min(y, word.y as i32);
+            w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
+            h = std::cmp::max(h, word.h as i32 + word.y as i32 - y);
+            text.push_str(&word.text);
+        }
+
+        let tokens = self.tokenizer.tokenize(&text).unwrap();
+
+        // TODO include `token.detail`?
+        // to filter out e.g.
+
+        for t in &tokens {
+            println!("{}: {:?}", t.text, t.detail);
+        }
+
+        JpnText {
+            words: tokens.iter().map(|t| t.text.to_owned()).collect(),
+            text,
+            x: x as u32,
+            y: y as u32,
+            w: w as u32,
+            h: h as u32,
+        }
     }
 }
