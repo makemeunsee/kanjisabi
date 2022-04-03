@@ -8,23 +8,24 @@ Heavily WIP for now
 
 Powered by:
 
-- [Tesseract](https://github.com/tesseract-ocr/tesseract)
-- [JMDict](http://edrdg.org/jmdict/j_jmdict.html) (soon)
-- [SDL](https://www.libsdl.org/)
-- [fontconfig](https://www.freedesktop.org/wiki/Software/fontconfig/)
-- [a bunch of awesome Rust libraries and wrappers](Cargo.toml)
+- OCR: [Tesseract](https://github.com/tesseract-ocr/tesseract)
+- Morphological analysis: [Lindera](https://github.com/lindera-morphology/lindera)
+- Translation: [JMDict](http://edrdg.org/jmdict/j_jmdict.html) (soon)
+- Presentation: libX11 via [x11rb](https://crates.io/crates/x11rb)
+- Drawing: SDL via [sdl2](https://crates.io/crates/sdl2)
+- [Many other awesome Rust crates](Cargo.toml)
 
 ## Requirements
 
 - Running on the system:
   - A compositor, e.g. `picom`, to handle transparency across windows; should only matter to people running tiling windows managers such as `xmonad` or `i3`
   - A `X11` server, until someone passionate wants to port the UI logic to Wayland/Windows/whatever
-- Installed on the system:
+- Libraries installed on the system:
   - `sdl2` and `sdl2_ttf`
   - `leptonica` and `tesseract`
-  - Tesseract language libs: `tesseract-data-jpn`, `tesseract-data-eng`; `tesseract-data-jpn_vert` can't hurt
+  - Tesseract language libs: `tesseract-data-jpn`; `tesseract-data-eng` for the Tesseract example
   - `fontconfig`
-  - Japanese fonts, `Source Han Sans JP` is a personal recommandation
+- Japanese fonts, `Source Han Sans JP` is a personal recommandation
 
 ## Usage
 
