@@ -409,7 +409,11 @@ impl App {
 
         while self.keep_running() {
             if self.ocr_on() {
-                ocr_is_on = true;
+                if !ocr_is_on {
+                    ocr_is_on = true;
+                    // unhide overlay
+                    self.conn.map_window(self.window)?;
+                }
                 let pos = self.device_state.get_mouse().coords;
                 if mouse_pos != pos {
                     // mouse has moved, reset everything
@@ -459,7 +463,8 @@ impl App {
                 // disabling OCR is disabled, clear any on-screen hints
                 ocr_is_on = false;
                 self.reset_ocr();
-                // TODO hide window?
+                // hide overlay
+                self.conn.unmap_window(self.window)?;
             }
             std::thread::sleep(twenty_millis);
         }
