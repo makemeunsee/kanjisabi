@@ -95,29 +95,19 @@ impl JpnOCR {
     }
 
     /// digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
-    pub fn from_line(self: &Self, line: &mut Vec<&OCRWord>) -> Vec<JpnText> {
-        line.sort_by(|a, b| a.word_num.cmp(&b.word_num));
-        line.into_iter()
-            .filter(|w| w.conf > self.threshold && (self.discriminator)(&w.text))
-            .fold(vec![], |mut acc: Vec<Vec<&OCRWord>>, word| {
-                let last_seq = acc.last_mut();
-                let last_id = last_seq
-                    .as_ref()
-                    .and_then(|v| v.last())
-                    .map_or(std::u32::MAX - 1, |w| w.word_num);
-                if last_id + 1 == word.word_num {
-                    last_seq.unwrap().push(word);
+    pub fn from_line(self: &Self, line: &Vec<&OCRWord>) -> Vec<JpnText> {
+        line.split(|w| w.conf <= self.threshold || !(self.discriminator)(&w.text))
+            .filter_map(|seq| {
+                if seq.len() == 0 {
+                    None
                 } else {
-                    acc.push(vec![word]);
+                    Some(self.from_word_seq(seq))
                 }
-                acc
             })
-            .into_iter()
-            .map(|w| self.from_word_seq(&w))
             .collect()
     }
 
-    fn from_word_seq(self: &Self, seq: &Vec<&OCRWord>) -> JpnText {
+    fn from_word_seq(self: &Self, seq: &[&OCRWord]) -> JpnText {
         let mut x = std::i32::MAX;
         let mut y = std::i32::MAX;
         let mut w = 0;
