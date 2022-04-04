@@ -319,8 +319,8 @@ impl App {
                 &self.conn,
                 self.window,
                 &data,
-                self.capture_x + jpn_text.x as i32,
-                self.capture_y + jpn_text.y as i32,
+                self.capture_x + jpn_text.x,
+                self.capture_y + jpn_text.y,
                 width,
                 height,
             )

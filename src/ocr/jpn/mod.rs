@@ -21,16 +21,17 @@ pub struct Morpheme {
     /// otherwise:
     /// ["UNK"]
     pub detail: Vec<String>,
-    pub bbox: Option<(u32, u32, u32, u32)>,
+    pub bbox: Option<(i32, i32, i32, i32)>,
 }
 
+#[derive(Debug)]
 pub struct JpnText {
     pub morphemes: Vec<Morpheme>,
     pub text: String,
-    pub x: u32,
-    pub y: u32,
-    pub w: u32,
-    pub h: u32,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
 }
 
 fn is_kanji(c: char) -> bool {
@@ -121,7 +122,10 @@ impl JpnOCR {
     }
 
     fn from_word_seq(self: &Self, seq: &[&OCRWord]) -> JpnText {
-        let chars_in_seq = seq.iter().map(|t| t.text.len() as u32).sum::<u32>();
+        let chars_in_seq = seq
+            .iter()
+            .map(|t| t.text.chars().count() as u32)
+            .sum::<u32>();
 
         let mut x = std::i32::MAX;
         let mut y = std::i32::MAX;
@@ -133,32 +137,37 @@ impl JpnOCR {
         // used for assigning bounding boxes to morphemes
         let mut bounding_boxes = vec![];
 
-        // TODO average out ys and hs, as tesseract jpn bounds are often off; ask tesseract? https://github.com/tesseract-ocr/tesseract#support
+        // TODO average out ys and hs?
+        // Tesseract bboxes are not accurate: https://github.com/tesseract-ocr/tesseract/labels/bounding%20box
         for word in seq {
             bounding_boxes.push(Some((word.x, word.y, word.w, word.h)));
-            for _ in 1..word.text.len() {
+
+            for _ in 1..word.text.chars().count() {
                 bounding_boxes.push(None);
             }
-            x = std::cmp::min(x, word.x as i32);
-            y = std::cmp::min(y, word.y as i32);
-            w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
-            h = std::cmp::max(h, word.h as i32 + word.y as i32 - y);
+            x = std::cmp::min(x, word.x);
+            y = std::cmp::min(y, word.y);
+            w = std::cmp::max(w, word.w + word.x - x);
+            h = std::cmp::max(h, word.h + word.y - y);
             text.push_str(&word.text);
         }
 
         let tokens = self.tokenizer.tokenize(&text).unwrap();
 
-        let chars_in_tokens = tokens.iter().map(|t| t.text.len() as u32).sum::<u32>();
+        let chars_in_tokens = tokens
+            .iter()
+            .map(|t| t.text.chars().count() as u32)
+            .sum::<u32>();
 
         if chars_in_seq != chars_in_tokens {
             println!("Inconsistent morphological analysis results, discarding them");
             return JpnText {
                 morphemes: vec![],
                 text,
-                x: x as u32,
-                y: y as u32,
-                w: w as u32,
-                h: h as u32,
+                x,
+                y,
+                w,
+                h,
             };
         }
 
@@ -166,23 +175,37 @@ impl JpnOCR {
 
         let mut char_index = 0;
         for t in tokens {
-            let bbox = bounding_boxes[char_index];
+            let len = t.text.chars().count();
+            let mut x = std::i32::MAX;
+            let mut y = std::i32::MAX;
+            let mut w = 0;
+            let mut h = 0;
+            for i in 0..len {
+                if let Some((bx, by, bw, bh)) = bounding_boxes[char_index + i] {
+                    x = std::cmp::min(x, bx);
+                    y = std::cmp::min(y, by);
+                    w = std::cmp::max(w, bw + bx - x);
+                    h = std::cmp::max(h, bh + by - y);
+                }
+            }
+
+            let bbox = (x, y, w, h);
             let morpheme = Morpheme {
                 text: t.text.to_owned(),
                 detail: t.detail.clone(),
-                bbox,
+                bbox: Some(bbox),
             };
             morphemes.push(morpheme);
-            char_index += t.text.len();
+            char_index += len;
         }
 
         JpnText {
             morphemes,
             text,
-            x: x as u32,
-            y: y as u32,
-            w: w as u32,
-            h: h as u32,
+            x,
+            y,
+            w,
+            h,
         }
     }
 }

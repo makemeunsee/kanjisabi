@@ -10,10 +10,10 @@ pub struct OCRWord {
     pub line_id: (u32, u32, u32, u32),
     pub word_num: u32,
     pub conf: f32,
-    pub x: u32,
-    pub y: u32,
-    pub w: u32,
-    pub h: u32,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
 }
 
 pub struct OCR {
@@ -60,10 +60,10 @@ impl OCR {
 
         let line_id = (page, block, paragraph, line);
 
-        let x = tokens[6].parse::<u32>()?;
-        let y = tokens[7].parse::<u32>()?;
-        let w = tokens[8].parse::<u32>()?;
-        let h = tokens[9].parse::<u32>()?;
+        let x = tokens[6].parse::<i32>()?;
+        let y = tokens[7].parse::<i32>()?;
+        let w = tokens[8].parse::<i32>()?;
+        let h = tokens[9].parse::<i32>()?;
         let text = tokens[11].clone();
 
         Ok(OCRWord {
