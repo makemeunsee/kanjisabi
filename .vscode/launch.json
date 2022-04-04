@@ -7,24 +7,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'kanjisabi'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=kanjisabi",
-                    "--package=kanjisabi"
-                ],
-                "filter": {
-                    "name": "kanjisabi",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug unit tests in library 'kanjisabi'",
             "cargo": {
                 "args": [
@@ -36,6 +18,24 @@
                 "filter": {
                     "name": "kanjisabi",
                     "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'kanjisabi'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=kanjisabi",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "kanjisabi",
+                    "kind": "bin"
                 }
             },
             "args": [],
@@ -202,6 +202,43 @@
                 ],
                 "filter": {
                     "name": "fontconfig",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'lindera'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=lindera",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "lindera",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'lindera'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=lindera",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "lindera",
                     "kind": "example"
                 }
             },

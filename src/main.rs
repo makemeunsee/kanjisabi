@@ -304,7 +304,12 @@ impl App {
         for jpn_text in &self.ocr_results {
             let (data, width, height) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
-                &jpn_text.words.join("|"),
+                &jpn_text
+                    .morphemes
+                    .iter()
+                    .map(|m| m.text.as_str())
+                    .collect::<Vec<&str>>()
+                    .join("|"),
                 &font_path(&self.fc, family, Some(style)).unwrap(),
                 sdl2::pixels::Color::RGBA(0x20, 0x30, 0x00, 0xFF),
                 sdl2::pixels::Color::RGBA(0xDD, 0xDD, 0xC8, 0xDD),

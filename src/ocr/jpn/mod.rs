@@ -12,8 +12,20 @@ pub struct JpnOCR {
     tokenizer: Tokenizer,
 }
 
+#[derive(Debug)]
+pub struct Morpheme {
+    pub text: String,
+    /// Same structure as `lindera::tokenizer::Token.detail` - present documentation is empirical
+    /// if the original token is valid:
+    /// [type, subtype, detail1, detail2, verb group, verb form, dict form, alt pronunciation1?, alt pronunciation2?]
+    /// otherwise:
+    /// ["UNK"]
+    pub detail: Vec<String>,
+    pub bbox: Option<(u32, u32, u32, u32)>,
+}
+
 pub struct JpnText {
-    pub words: Vec<String>,
+    pub morphemes: Vec<Morpheme>,
     pub text: String,
     pub x: u32,
     pub y: u32,
@@ -58,6 +70,7 @@ impl JpnOCR {
             },
             threshold: 80.,
             discriminator: |s| {
+                // assumption: OCR does not group non-Japanese and Japanese characters (e.g. ２階), or it's ok not to care about them
                 s.chars()
                     .all(|c| is_kanji(c) || is_katakana(c) || is_hiragana(c))
             },
@@ -108,14 +121,24 @@ impl JpnOCR {
     }
 
     fn from_word_seq(self: &Self, seq: &[&OCRWord]) -> JpnText {
+        let chars_in_seq = seq.iter().map(|t| t.text.len() as u32).sum::<u32>();
+
         let mut x = std::i32::MAX;
         let mut y = std::i32::MAX;
         let mut w = 0;
         let mut h = 0;
         let mut text = "".to_string();
 
+        // for each character in all words of the sequence, assign it a bounding box if it's the first character of its word
+        // used for assigning bounding boxes to morphemes
+        let mut bounding_boxes = vec![];
+
         // TODO average out ys and hs, as tesseract jpn bounds are often off; ask tesseract? https://github.com/tesseract-ocr/tesseract#support
         for word in seq {
+            bounding_boxes.push(Some((word.x, word.y, word.w, word.h)));
+            for _ in 1..word.text.len() {
+                bounding_boxes.push(None);
+            }
             x = std::cmp::min(x, word.x as i32);
             y = std::cmp::min(y, word.y as i32);
             w = std::cmp::max(w, word.w as i32 + word.x as i32 - x);
@@ -125,15 +148,36 @@ impl JpnOCR {
 
         let tokens = self.tokenizer.tokenize(&text).unwrap();
 
-        // TODO include `token.detail`?
-        // to filter out e.g.
+        let chars_in_tokens = tokens.iter().map(|t| t.text.len() as u32).sum::<u32>();
 
-        for t in &tokens {
-            println!("{}: {:?}", t.text, t.detail);
+        if chars_in_seq != chars_in_tokens {
+            println!("Inconsistent morphological analysis results, discarding them");
+            return JpnText {
+                morphemes: vec![],
+                text,
+                x: x as u32,
+                y: y as u32,
+                w: w as u32,
+                h: h as u32,
+            };
+        }
+
+        let mut morphemes = vec![];
+
+        let mut char_index = 0;
+        for t in tokens {
+            let bbox = bounding_boxes[char_index];
+            let morpheme = Morpheme {
+                text: t.text.to_owned(),
+                detail: t.detail.clone(),
+                bbox,
+            };
+            morphemes.push(morpheme);
+            char_index += t.text.len();
         }
 
         JpnText {
-            words: tokens.iter().map(|t| t.text.to_owned()).collect(),
+            morphemes,
             text,
             x: x as u32,
             y: y as u32,
