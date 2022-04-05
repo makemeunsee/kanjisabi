@@ -128,7 +128,7 @@ impl JpnOCR {
             .sum::<u32>();
 
         let mut x = std::i32::MAX;
-        let mut y = std::i32::MAX;
+        let mut y = 0;
         let mut w = 0;
         let mut h = 0;
         let mut text = "".to_string();
@@ -146,11 +146,13 @@ impl JpnOCR {
                 bounding_boxes.push(None);
             }
             x = std::cmp::min(x, word.x);
-            y = std::cmp::min(y, word.y);
+            y += word.y;
             w = std::cmp::max(w, word.w + word.x - x);
-            h = std::cmp::max(h, word.h + word.y - y);
+            h += word.h;
             text.push_str(&word.text);
         }
+        y = (y as f32 / chars_in_seq as f32) as i32;
+        h = (h as f32 / chars_in_seq as f32) as i32;
 
         let tokens = self.tokenizer.tokenize(&text).unwrap();
 
