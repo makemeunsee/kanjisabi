@@ -26,7 +26,7 @@ pub fn main() -> Result<()> {
 
     let font_path = Fontconfig::new()
         .unwrap()
-        .find("Aozora Mincho", Some("Bold"))
+        .find("Source Han Sans JP", Some("B"))
         .unwrap()
         .path;
 

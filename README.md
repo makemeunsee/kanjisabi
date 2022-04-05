@@ -25,7 +25,7 @@ Powered by:
   - `leptonica` and `tesseract`
   - Tesseract language libs: `tesseract-data-jpn`; `tesseract-data-eng` for the Tesseract example
   - `fontconfig`
-- Japanese fonts, `Source Han Sans JP` is a personal recommandation
+- Japanese fonts, `Source Han Sans JP` and `Source Han Code JP` are personal recommendations
 
 ## Usage
 
