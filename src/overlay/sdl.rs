@@ -2,6 +2,7 @@ use std::path::Path;
 
 use sdl2::{
     pixels::{Color, PixelMasks},
+    rect::Rect,
     render::Canvas,
     surface::Surface,
     sys::SDL_WindowFlags,
@@ -91,11 +92,11 @@ fn print_to_window_canvas(source: &Surface, dest: &mut Canvas<Window>) {
     dest.copy(&texture, None, None).unwrap();
 }
 
-fn print_to_surface_canvas(source: &Surface, dest: &mut Canvas<Surface>) {
+fn print_to_surface_canvas(source: &Surface, dest: &mut Canvas<Surface>, dest_rect: Option<Rect>) {
     let creator = dest.texture_creator();
     let texture = source.as_texture(&creator).unwrap();
     dest.set_blend_mode(sdl2::render::BlendMode::Add);
-    dest.copy(&texture, None, None).unwrap();
+    dest.copy(&texture, None, dest_rect).unwrap();
 }
 
 fn print_to_pixels<'a>(
@@ -104,6 +105,7 @@ fn print_to_pixels<'a>(
     width: u32,
     height: u32,
     color_bg: Color,
+    dest_rect: Option<Rect>,
 ) {
     let target = Surface::from_data_pixelmasks(
         data,
@@ -124,7 +126,7 @@ fn print_to_pixels<'a>(
     target.set_draw_color(color_bg);
     target.clear();
 
-    print_to_surface_canvas(source, &mut target);
+    print_to_surface_canvas(source, &mut target, dest_rect);
 }
 
 pub fn print_to_new_pixels<P>(
@@ -133,17 +135,25 @@ pub fn print_to_new_pixels<P>(
     font_path: P,
     color_fg: Color,
     color_bg: Color,
+    margin: u32,
     point_size: u16,
 ) -> (Vec<u8>, u32, u32)
 where
     P: AsRef<Path>,
 {
     let text = render_text(ctx, text, font_path, color_fg, point_size);
-    let width = text.width();
-    let height = text.height();
+    let width = text.width() + 2 * margin;
+    let height = text.height() + 2 * margin;
+
+    let dest_rect = Some(Rect::new(
+        margin as i32,
+        margin as i32,
+        text.width(),
+        text.height(),
+    ));
 
     let mut data = vec![0 as u8; width as usize * height as usize * 4];
-    print_to_pixels(&text, &mut data, width, height, color_bg);
+    print_to_pixels(&text, &mut data, width, height, color_bg, dest_rect);
 
     (data, width, height)
 }
@@ -163,7 +173,7 @@ pub fn print_to_existing_pixels<P>(
 {
     let text = render_text(ctx, text, font_path, color_fg, point_size);
 
-    print_to_pixels(&text, data, width, height, color_bg);
+    print_to_pixels(&text, data, width, height, color_bg, None);
 }
 
 pub fn print_to_canvas_and_resize<P>(

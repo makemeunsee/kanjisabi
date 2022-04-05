@@ -9,7 +9,7 @@ use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
-use kanjisabi::ocr::jpn::{JpnText, Morpheme};
+use kanjisabi::ocr::jpn::JpnText;
 use kanjisabi::overlay::sdl::print_to_new_pixels;
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window,
@@ -303,7 +303,7 @@ impl App {
         let (family, style) = &self.fonts[self.font_idx];
         for jpn_text in &self.ocr_results {
             let font_size = (jpn_text.h as f32 / 8.).round() * 8.;
-            println!("{} - {}", jpn_text.text, font_size);
+            let scaled_size = font_size * self.font_scale as f32 / 100.;
             let (data, width, height) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
                 &jpn_text
@@ -313,9 +313,10 @@ impl App {
                     .collect::<Vec<&str>>()
                     .join("|"),
                 &font_path(&self.fc, family, Some(style)).unwrap(),
-                sdl2::pixels::Color::RGBA(0x20, 0x30, 0x00, 0xFF),
-                sdl2::pixels::Color::RGBA(0xDD, 0xDD, 0xC8, 0xDD),
-                (font_size * self.font_scale as f32 / 100.) as u16,
+                sdl2::pixels::Color::RGBA(0x32, 0xFF, 0x00, 0xFF),
+                sdl2::pixels::Color::RGBA(0x00, 0x00, 0x24, 0xC0),
+                (scaled_size / 2.) as u32,
+                scaled_size as u16,
             );
             paint_rgba_pixels_on_window(
                 &self.conn,
@@ -484,8 +485,14 @@ fn main() -> Result<()> {
     // TODO preferred font family as program args / file config
     // TODO key combos file config override?
 
+    let default_font = ("Source Han Code JP", "N");
+
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
+    let font_idx = fonts
+        .iter()
+        .position(|f| f.0 == default_font.0 && f.1 == default_font.1)
+        .unwrap_or(0);
 
     let device_state = DeviceState::new();
 
@@ -505,7 +512,7 @@ fn main() -> Result<()> {
         sdl2_ttf_ctx: sdl2::ttf::init()?,
         fc,
         fonts,
-        font_idx: 0,
+        font_idx,
         screen_w,
         screen_h,
         ocr: JpnOCR::new(),

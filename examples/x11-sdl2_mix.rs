@@ -62,6 +62,7 @@ fn main() -> Result<()> {
         &font_path,
         sdl2::pixels::Color::RGBA(0xFF, 0xDD, 0x00, 0xFF),
         sdl2::pixels::Color::RGBA(0x00, 0x00, 0x40, 0x40),
+        0,
         96,
     );
     resize_window(&conn, win1, width, height)?;

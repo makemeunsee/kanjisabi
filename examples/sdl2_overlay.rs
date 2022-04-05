@@ -26,7 +26,7 @@ pub fn main() -> Result<()> {
 
     let font_path = Fontconfig::new()
         .unwrap()
-        .find("Source Han Sans JP", Some("B"))
+        .find("Source Han Code JP", Some("R"))
         .unwrap()
         .path;
 
