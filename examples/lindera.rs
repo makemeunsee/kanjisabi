@@ -31,8 +31,10 @@ fn main() {
     //   格助詞: case marking particle
     //   接続助詞: conjunction particle
     //   係助詞: binding particle
+    //   並立助詞: parallel marker
     // 動詞: verb
     //   自立: independant
+    //   非自立: not independant
     // 助動詞: auxiliary verb
     // 形容詞: adjective
     // 副詞: adverb

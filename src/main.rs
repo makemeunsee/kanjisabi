@@ -9,7 +9,7 @@ use device_query::{DeviceQuery, DeviceState};
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::fonts::{font_path, japanese_font_families_and_styles_flat};
-use kanjisabi::ocr::jpn::JpnText;
+use kanjisabi::ocr::jpn::{JpnText, Morpheme};
 use kanjisabi::overlay::sdl::print_to_new_pixels;
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window,
@@ -119,7 +119,7 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
         vec![Key::PERIOD],
         move || {
             if let Ok(mut write_guard) = adjust_font_size_w_inc.write() {
-                *write_guard = 10;
+                *write_guard = 25;
             }
         },
     )?;
@@ -129,7 +129,7 @@ fn register_hotkeys() -> Result<HotkeysSharedData> {
         vec![Key::COMMA],
         move || {
             if let Ok(mut write_guard) = adjust_font_size_w_dec.write() {
-                *write_guard = -10;
+                *write_guard = -25;
             }
         },
     )?;
@@ -302,6 +302,8 @@ impl App {
     fn draw_ocr_results(self: &Self) {
         let (family, style) = &self.fonts[self.font_idx];
         for jpn_text in &self.ocr_results {
+            let font_size = (jpn_text.h as f32 / 8.).round() * 8.;
+            println!("{} - {}", jpn_text.text, font_size);
             let (data, width, height) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
                 &jpn_text
@@ -313,7 +315,7 @@ impl App {
                 &font_path(&self.fc, family, Some(style)).unwrap(),
                 sdl2::pixels::Color::RGBA(0x20, 0x30, 0x00, 0xFF),
                 sdl2::pixels::Color::RGBA(0xDD, 0xDD, 0xC8, 0xDD),
-                (jpn_text.h as f32 * self.font_scale as f32 / 100.) as u16,
+                (font_size * self.font_scale as f32 / 100.) as u16,
             );
             paint_rgba_pixels_on_window(
                 &self.conn,
