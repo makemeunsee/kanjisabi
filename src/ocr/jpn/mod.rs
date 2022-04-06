@@ -134,11 +134,11 @@ impl JpnOCR {
         let mut text = "".to_string();
 
         // for each character in all words of the sequence, assign it a bounding box if it's the first character of its word
-        // used for assigning bounding boxes to morphemes
+        // later used for assigning bounding boxes to morphemes
         let mut bounding_boxes = vec![];
 
-        // TODO average out ys and hs?
-        // Tesseract bboxes are not accurate: https://github.com/tesseract-ocr/tesseract/labels/bounding%20box
+        // averaging out ys and hs, as Tesseract bboxes are not accurate
+        // see https://github.com/tesseract-ocr/tesseract/labels/bounding%20box
         for word in seq {
             bounding_boxes.push(Some((word.x, word.y, word.w, word.h)));
 

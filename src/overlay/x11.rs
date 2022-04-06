@@ -193,7 +193,7 @@ where
     Conn: Connection,
 {
     let depths = &screen.allowed_depths;
-    let visuals = &depths.iter().find(|&d| d.depth == 32).unwrap().visuals;
+    let visuals = &depths.into_iter().find(|&d| d.depth == 32).unwrap().visuals;
 
     let cw = ColormapWrapper::create_colormap(
         conn,

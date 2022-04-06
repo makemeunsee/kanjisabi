@@ -164,10 +164,12 @@ impl App {
     fn draw_ocr_results(self: &Self) -> Result<()> {
         let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
         let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
+
         for jpn_text in &self.ocr_results {
             // TODO introduce min/max font sizes from config
             let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
             let scaled_size = font_size * self.font_scale as f32 / 100.;
+
             let (data, width, height) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
                 &jpn_text
@@ -182,6 +184,7 @@ impl App {
                 (scaled_size / 2.) as u32,
                 scaled_size as u16,
             );
+
             paint_rgba_pixels_on_window(
                 &self.conn,
                 self.window,
@@ -328,6 +331,7 @@ impl App {
             } else {
                 if selecting_area {
                     selecting_area = false;
+                    // TODO visual hint of OCR in progress?
                     self.perform_ocr()?;
                 }
             }
