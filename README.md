@@ -29,8 +29,11 @@ Powered by:
 
 ## Usage
 
-- `ctrl` + `alt`: start capture mode; move the mouse to select a capture area; press again to cancel the capture and overlay display
-- `ctrl` + `alt` + `Escape`: exit the program 
+- Hold `ctrl` + `alt` to start capturing an area on screen by moving the moving cursor
+- Release `ctrl` + `alt` to trigger OCR, morphological analysis and translation hints
+- Press `lshift` or `rshift` while the overlay is displayed to increase or decrease the hints font size
+- Press again `ctrl` + `alt` without moving the mouse to discard the overlay
+- `ctrl` + `alt` + `escape` to exit the program 
 
 ## Acknowledgments
 
