@@ -8,10 +8,12 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 device_query = "1.0"
+env_logger = "0.9"
 fontconfig = "0.5"
 image = "0.24"
 jmdict = "2.0"
 lindera = { version = "0.12", features = ["ipadic"] }
+log = "0.4"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
 sdl2 = { version = "0.35", features = ["ttf"] }
 tesseract = "0.11"

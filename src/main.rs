@@ -14,6 +14,7 @@ use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window, raise,
     with_name, xfixes_init,
 };
+use log::{info, warn};
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
@@ -42,11 +43,11 @@ fn get_font_path(default_family: &str, default_style: &str) -> PathBuf {
             .iter()
             .position(|f| f.0 == default_family && f.1 == default_style)
     {
-        println!("Configured font is not available; available Japanese fonts:");
+        warn!("Configured font is not available; available Japanese fonts:");
         for fam_and_styles in &fonts {
-            println!("{:?}", fam_and_styles);
+            info!("{:?}", fam_and_styles);
         }
-        println!("Using the first font Japanese font available...");
+        info!("Using the first font Japanese font available...");
         let first = &fonts.first().unwrap();
         path_to_font(&fc, &first.0, Some(&first.1)).unwrap()
     } else {
@@ -346,6 +347,8 @@ impl App {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
+
     // TODO preferred font family as program args / file config
     let font_path = get_font_path("Source Han Code JP", "N");
 

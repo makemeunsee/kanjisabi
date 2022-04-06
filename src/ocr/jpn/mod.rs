@@ -4,6 +4,7 @@ use super::{OCRWord, OCR};
 
 use anyhow::Result;
 use lindera::tokenizer::Tokenizer;
+use log::warn;
 
 pub struct JpnOCR {
     ocr: OCR,
@@ -162,7 +163,7 @@ impl JpnOCR {
             .sum::<u32>();
 
         if chars_in_seq != chars_in_tokens {
-            println!("Inconsistent morphological analysis results, discarding them");
+            warn!("Inconsistent morphological analysis results, discarding them");
             return JpnText {
                 morphemes: vec![],
                 text,
