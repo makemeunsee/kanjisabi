@@ -185,7 +185,6 @@ impl App {
         // TODO get keys from config
         let trigger_keys = vec![Keycode::LControl, Keycode::LAlt];
         let quit_keys = vec![Keycode::LControl, Keycode::LAlt, Keycode::Escape];
-        let mut key_cooldown = 0;
 
         let mut window_mapped = false;
         let mut selecting_area = false;
@@ -194,11 +193,7 @@ impl App {
             let pos = self.device_state.get_mouse().coords;
             let keys = self.device_state.get_keys();
 
-            if key_cooldown > 0 {
-                key_cooldown -= 1;
-            }
-
-            // TODO extract functions
+            // TODO extract function
             if same_content(&keys, &quit_keys) {
                 break;
             }
