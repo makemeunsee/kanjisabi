@@ -1,18 +1,12 @@
 extern crate device_query;
 extern crate screenshot;
-extern crate tauri_hotkey;
 extern crate tesseract;
-
-extern crate tesseract_sys;
 
 use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState};
-use kanjisabi::hotkey::Helper;
 use kanjisabi::ocr::OCR;
 use screenshot::get_screenshot_area;
-use std::sync::{Arc, RwLock};
 use std::time;
-use tauri_hotkey::Key;
 
 pub fn main() -> Result<()> {
     let twenty_millis = time::Duration::from_millis(20);
@@ -21,18 +15,6 @@ pub fn main() -> Result<()> {
 
     let capture_w = 300;
     let capture_h = 100;
-
-    let keep_running = Arc::new(RwLock::new(true));
-    let keep_running_w = keep_running.clone();
-
-    let mut hkm = Helper::new();
-    hkm.register_hk(vec![], vec![Key::ESCAPE], move || {
-        if let Ok(mut write_guard) = keep_running_w.write() {
-            *write_guard = false;
-        }
-    })?;
-
-    let keep_running = move || keep_running.read().map_or(false, |x| *x);
 
     let device_state = DeviceState::new();
 
@@ -44,7 +26,7 @@ pub fn main() -> Result<()> {
         lang: String::from("eng"),
     };
 
-    while keep_running() {
+    loop {
         let pos = device_state.get_mouse().coords;
         if mouse_pos != pos {
             // mouse has moved, reset everything
@@ -81,6 +63,4 @@ pub fn main() -> Result<()> {
         }
         std::thread::sleep(twenty_millis);
     }
-
-    Ok(())
 }

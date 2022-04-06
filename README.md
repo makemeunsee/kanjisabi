@@ -29,11 +29,8 @@ Powered by:
 
 ## Usage
 
-- `ctrl` + `alt` + `Esc`: quit
-- `ctrl` + `alt` + `T`: toggle OCR and hints
-- `ctrl` + `alt` + `up`|`right`|`down`|`left`: adjust OCR capture area
-- `ctrl` + `alt` + `,`|`.`: adjust overlay font scaling
-- `ctrl` + `alt` + `N`|`P`: cycle through available Japanese fonts
+- `ctrl` + `alt`: start capture mode; move the mouse to select a capture area; press again to cancel the capture and overlay display
+- `ctrl` + `alt` + `Escape`: exit the program 
 
 ## Acknowledgments
 

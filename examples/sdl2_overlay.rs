@@ -2,28 +2,12 @@ extern crate sdl2;
 
 use anyhow::Result;
 use fontconfig::Fontconfig;
-use kanjisabi::hotkey::Helper;
 use kanjisabi::overlay::sdl::{print_to_canvas_and_resize, Overlay};
 use kanjisabi::overlay::x11::make_x11_win_input_passthrough;
 use sdl2::pixels::Color;
-use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tauri_hotkey::Key;
 
 pub fn main() -> Result<()> {
-    let quit = Arc::new(RwLock::new(false));
-    let quit_w = quit.clone();
-    let quit_r = quit.clone();
-
-    let mut hkm = Helper::new();
-    hkm.register_hk(vec![], vec![Key::ESCAPE], move || {
-        if let Ok(mut write_guard) = quit_w.write() {
-            *write_guard = true;
-        }
-    })?;
-
-    let lets_quit = move || quit_r.read().map_or(false, |x| *x);
-
     let font_path = Fontconfig::new()
         .unwrap()
         .find("Source Han Code JP", Some("R"))
@@ -56,7 +40,7 @@ pub fn main() -> Result<()> {
     text.present();
 
     let mut i = 0;
-    while !lets_quit() {
+    loop {
         i = i + 1;
 
         white_thin
@@ -77,6 +61,4 @@ pub fn main() -> Result<()> {
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
-
-    Ok(())
 }

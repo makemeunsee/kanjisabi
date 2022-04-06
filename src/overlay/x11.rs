@@ -142,6 +142,15 @@ where
     Err(anyhow::anyhow!("no window for name {}", name))
 }
 
+pub fn raise<Conn>(conn: &Conn, win_id: u32) -> Result<()>
+where
+    Conn: Connection,
+{
+    let values = ConfigureWindowAux::default().stack_mode(StackMode::ABOVE);
+    conn.configure_window(win_id, &values)?;
+    Ok(())
+}
+
 /// original hack, as `always_on_top` patterns are not fully effective with Xmonad
 /// not tested on other WMs yet
 pub fn raise_if_not_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>

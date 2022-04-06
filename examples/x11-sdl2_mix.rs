@@ -1,15 +1,12 @@
-use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::Result;
 use fontconfig::Fontconfig;
-use kanjisabi::hotkey::Helper;
 use kanjisabi::overlay::sdl::{print_to_existing_pixels, print_to_new_pixels};
 use kanjisabi::overlay::x11::{
     create_overlay_window, paint_rgba_pixels_on_window, raise_if_not_top, resize_window, with_name,
     xfixes_init,
 };
-use tauri_hotkey::Key;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::ConnectionExt as _;
 
@@ -70,24 +67,11 @@ fn main() -> Result<()> {
 
     conn.flush()?;
 
-    let quit = Arc::new(RwLock::new(false));
-    let quit_w = quit.clone();
-    let quit_r = quit.clone();
-
-    let mut hkm = Helper::new();
-    hkm.register_hk(vec![], vec![Key::ESCAPE], move || {
-        if let Ok(mut write_guard) = quit_w.write() {
-            *write_guard = true;
-        }
-    })?;
-
-    let lets_quit = move || quit_r.read().map_or(false, |x| *x);
-
     const STACK_CHECK_DELAY: u32 = 30;
 
     let mut i = 1;
 
-    while !lets_quit() {
+    loop {
         if let Some(event) = conn.poll_for_event().unwrap() {
             println!("Event: {:?}", event);
         } else {
@@ -99,6 +83,4 @@ fn main() -> Result<()> {
         i = (i + 1) % STACK_CHECK_DELAY;
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
-
-    Ok(())
 }
