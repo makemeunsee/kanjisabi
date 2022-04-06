@@ -278,7 +278,7 @@ impl App {
             }
 
             if increase_font(&keys) {
-                if !increased {
+                if window_mapped && !increased {
                     increased = true;
                     let new_font_scale = (self.font_scale + 25).max(50).min(200);
                     if new_font_scale != self.font_scale {
@@ -291,7 +291,7 @@ impl App {
             }
 
             if decrease_font(&keys) {
-                if !decreased {
+                if window_mapped && !decreased {
                     decreased = true;
                     let new_font_scale = (self.font_scale - 25).max(50).min(200);
                     if new_font_scale != self.font_scale {
