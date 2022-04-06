@@ -6,7 +6,7 @@ use std::{
 
 use fontconfig::{Fontconfig, Pattern};
 
-pub fn font_path(fc: &Fontconfig, family: &str, style: Option<&str>) -> Option<PathBuf> {
+pub fn path_to_font(fc: &Fontconfig, family: &str, style: Option<&str>) -> Option<PathBuf> {
     fc.find(family, style).map(|f| f.path)
 }
 
