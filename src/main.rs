@@ -69,8 +69,8 @@ fn same_content<T: std::cmp::PartialEq>(ts0: &[T], ts1: &[T]) -> bool {
 }
 
 fn get_font_path(config: &Config) -> PathBuf {
-    let family_res = config.get_string("font_family").ok();
-    let style_res = config.get_string("font_style").ok();
+    let family_res = config.get_string("font.family").ok();
+    let style_res = config.get_string("font.style").ok();
     let family_opt = family_res.as_deref();
     let style_opt = style_res.as_deref();
 
@@ -129,23 +129,25 @@ struct App {
 
 impl App {
     fn capture_color(self: &Self) -> u32 {
-        self.config.get_int("color_capture").unwrap_or(0x20002000) as u32
+        self.config.get_int("colors.capture").unwrap_or(0x20002000) as u32
     }
 
     fn highlight_color(self: &Self) -> u32 {
-        self.config.get_int("color_highlight").unwrap_or(0x20200000) as u32
+        self.config
+            .get_int("colors.highlight")
+            .unwrap_or(0x20200000) as u32
     }
 
     fn hint_color(self: &Self) -> sdl2::pixels::Color {
-        argb_to_sdl_color(self.config.get_int("color_hint").unwrap_or(0xFF32FF00) as u32)
+        argb_to_sdl_color(self.config.get_int("colors.hint").unwrap_or(0xFF32FF00) as u32)
     }
 
     fn hint_bg_color(self: &Self) -> sdl2::pixels::Color {
-        argb_to_sdl_color(self.config.get_int("color_hint_bg").unwrap_or(0xC0000024) as u32)
+        argb_to_sdl_color(self.config.get_int("colors.hint_bg").unwrap_or(0xC0000024) as u32)
     }
 
     fn contrast(self: &Self) -> f32 {
-        self.config.get_float("preproc_contrast").unwrap_or(100.) as f32
+        self.config.get_float("preproc.contrast").unwrap_or(100.) as f32
     }
 
     fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {

@@ -42,22 +42,25 @@ Powered by:
 Here's an annotated configuration showing the default values:
 
 ```toml
+[font]
 # what font to use when displaying hints; the first Japanese font found will be used if empty
-font_family = ""
+family = ""
 # valid only if `font_family` is defined and valid; the default font style of the actually used font will be used if empty or not valid
-font_style = ""
+style = ""
 
+[colors]
 # ARGB, the color used to visualize the screen capture area
-color_capture = 0x20002000
+capture = 0x20002000
 # ARGB, the color used to highlight the parts of the captured area that the OCR managed to read
-color_highlight = 0x20200000
+highlight = 0x20200000
 # ARGB, the font color used when displaying hints in the overlay
-color_hint = 0xFF32FF00
+hint = 0xFF32FF00
 # ARGB, the background color used when displaying hints in the overlay
-color_hint_bg = 0xC0000024
+hint_bg = 0xC0000024
 
+[preproc]
 # float, the contrast increase applied to the captured screen area prior to performing OCR
-preproc_contrast = 100
+contrast = 100
 ```
 
 ## Acknowledgments
