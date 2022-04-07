@@ -3,7 +3,9 @@ extern crate screenshot;
 extern crate tesseract;
 
 use anyhow::Result;
+use config::{Config, File};
 use device_query::{DeviceQuery, DeviceState, Keycode};
+use directories::BaseDirs;
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
@@ -15,52 +17,92 @@ use kanjisabi::overlay::x11::{
     with_name, xfixes_init,
 };
 use log::{info, warn};
+use notify::{DebouncedEvent, INotifyWatcher, Watcher};
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
 use std::time;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::rust_connection::RustConnection;
 
-fn rgba_tuple_to_sdl_color(tuple: (u8, u8, u8, u8)) -> sdl2::pixels::Color {
-    sdl2::pixels::Color::RGBA(tuple.0, tuple.1, tuple.2, tuple.3)
+const CONFIG_FILE: &str = "kanjisabi.toml";
+
+fn config_path() -> PathBuf {
+    let mut path = BaseDirs::new().unwrap().config_dir().to_path_buf();
+    path.push(CONFIG_FILE);
+    path
 }
 
-fn rgba_tuple_to_argb_color(tuple: (u8, u8, u8, u8)) -> u32 {
-    ((tuple.3 as u32) << 24) + ((tuple.0 as u32) << 16) + ((tuple.1 as u32) << 8) + (tuple.2 as u32)
+fn load_config() -> config::Config {
+    config::Config::builder()
+        .add_source(File::from(config_path()))
+        .build()
+        .unwrap()
+}
+
+fn watch_config() -> (Receiver<DebouncedEvent>, INotifyWatcher) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher: notify::RecommendedWatcher =
+        notify::Watcher::new(tx, time::Duration::from_secs(2)).unwrap();
+
+    watcher
+        .watch(config_path(), notify::RecursiveMode::NonRecursive)
+        .unwrap();
+
+    (rx, watcher)
+}
+
+fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
+    sdl2::pixels::Color::RGBA(
+        (argb >> 16) as u8,
+        (argb >> 8) as u8,
+        argb as u8,
+        (argb >> 24) as u8,
+    )
 }
 
 fn same_content<T: std::cmp::PartialEq>(ts0: &[T], ts1: &[T]) -> bool {
     ts0.len() == ts1.len() && ts0.iter().all(|t| ts1.contains(t))
 }
 
-fn get_font_path(default_family: &str, default_style: &str) -> PathBuf {
+fn get_font_path(config: &Config) -> PathBuf {
+    let family_res = config.get_string("font_family").ok();
+    let style_res = config.get_string("font_style").ok();
+    let family_opt = family_res.as_deref();
+    let style_opt = style_res.as_deref();
+
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
-    if None
-        == fonts
-            .iter()
-            .position(|f| f.0 == default_family && f.1 == default_style)
-    {
-        warn!("Configured font is not available; available Japanese fonts:");
+    let first = &fonts
+        .first()
+        .unwrap_or_else(|| panic!("No Japanese font available"))
+        .0;
+
+    let print_fonts = || {
         for fam_and_styles in &fonts {
             info!("{:?}", fam_and_styles);
         }
-        info!("Using the first font Japanese font available...");
-        let first = &fonts.first().unwrap();
-        path_to_font(&fc, &first.0, Some(&first.1)).unwrap()
-    } else {
-        path_to_font(&fc, default_family, Some(default_style)).unwrap()
-    }
-}
+        info!("Using the first font Japanese font available ({})", first);
+    };
 
-struct Config {
-    font_path: PathBuf,
-    capture_color: (u8, u8, u8, u8),
-    highlight_color: (u8, u8, u8, u8),
-    hint_color: (u8, u8, u8, u8),
-    hint_bg_color: (u8, u8, u8, u8),
+    if let Some(family) = family_opt {
+        if None == fonts.iter().position(|f| f.0 == family) {
+            warn!(
+                "Requested font ({}) is not available; available Japanese fonts:",
+                family
+            );
+            print_fonts();
+            path_to_font(&fc, &first, None).unwrap()
+        } else {
+            path_to_font(&fc, family, style_opt).unwrap()
+        }
+    } else {
+        warn!("No font specified; available Japanese fonts:");
+        print_fonts();
+        path_to_font(&fc, &first, None).unwrap()
+    }
 }
 
 struct App {
@@ -81,23 +123,47 @@ struct App {
     capture_y1: i32,
     ocr_results: Vec<JpnText>,
     font_scale: i32,
+    font_path: PathBuf,
 }
 
 impl App {
     fn capture_color(self: &Self) -> u32 {
-        rgba_tuple_to_argb_color(self.config.capture_color)
+        self.config.get_int("color_capture").unwrap_or(0x20002000) as u32
     }
 
     fn highlight_color(self: &Self) -> u32 {
-        rgba_tuple_to_argb_color(self.config.highlight_color)
+        self.config.get_int("color_highlight").unwrap_or(0x20200000) as u32
     }
 
     fn hint_color(self: &Self) -> sdl2::pixels::Color {
-        rgba_tuple_to_sdl_color(self.config.hint_color)
+        argb_to_sdl_color(self.config.get_int("color_hint").unwrap_or(0xFF32FF00) as u32)
     }
 
     fn hint_bg_color(self: &Self) -> sdl2::pixels::Color {
-        rgba_tuple_to_sdl_color(self.config.hint_bg_color)
+        argb_to_sdl_color(self.config.get_int("color_hint_bg").unwrap_or(0xC0000024) as u32)
+    }
+
+    fn contrast(self: &Self) -> f32 {
+        self.config.get_float("prepoc_contrast").unwrap_or(100.) as f32
+    }
+
+    fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {
+        info!("Configuration changed, refreshing...");
+        let old_contrast = self.contrast();
+        self.config = load_config();
+        self.font_path = get_font_path(&self.config);
+        if window_mapped {
+            let new_contrast = self.contrast();
+            if old_contrast != new_contrast {
+                self.reset_ocr()?;
+                self.draw_capture_area()?;
+                self.perform_ocr()?;
+            } else {
+                self.redraw_all()?;
+            }
+        }
+
+        Ok(())
     }
 
     fn clear_overlay(self: &Self) -> Result<()> {
@@ -142,22 +208,62 @@ impl App {
         Ok(())
     }
 
+    fn draw_highlight(self: &Self, jpn_text: &JpnText, x0: i16, y0: i16) -> Result<()> {
+        draw_a_rectangle(
+            &self.conn,
+            self.window,
+            x0 + jpn_text.x as i16,
+            y0 + jpn_text.y as i16,
+            jpn_text.w as u16,
+            jpn_text.h as u16,
+            self.highlight_color(),
+        )?;
+
+        Ok(())
+    }
+
     fn draw_highlights(self: &Self) -> Result<()> {
         let x0 = std::cmp::min(self.capture_x0, self.capture_x1) as i16;
         let y0 = std::cmp::min(self.capture_y0, self.capture_y1) as i16;
-        for word in &self.ocr_results {
-            draw_a_rectangle(
-                &self.conn,
-                self.window,
-                x0 + word.x as i16,
-                y0 + word.y as i16,
-                word.w as u16,
-                word.h as u16,
-                self.highlight_color(),
-            )?;
+
+        for jpn_text in &self.ocr_results {
+            self.draw_highlight(jpn_text, x0, y0)?;
         }
 
         self.conn.flush()?;
+
+        Ok(())
+    }
+
+    fn draw_ocr_result(self: &Self, jpn_text: &JpnText, x0: i32, y0: i32) -> Result<()> {
+        // TODO introduce min/max font sizes from config
+        let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
+        let scaled_size = font_size * self.font_scale as f32 / 100.;
+
+        let (data, width, height) = print_to_new_pixels(
+            &self.sdl2_ttf_ctx,
+            &jpn_text
+                .morphemes
+                .iter()
+                .map(|m| m.text.as_str())
+                .collect::<Vec<&str>>()
+                .join("|"),
+            &self.font_path,
+            self.hint_color(),
+            self.hint_bg_color(),
+            (scaled_size / 2.) as u32,
+            scaled_size as u16,
+        );
+
+        paint_rgba_pixels_on_window(
+            &self.conn,
+            self.window,
+            &data,
+            x0 + jpn_text.x,
+            y0 + jpn_text.y,
+            width,
+            height,
+        )?;
 
         Ok(())
     }
@@ -167,34 +273,7 @@ impl App {
         let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
 
         for jpn_text in &self.ocr_results {
-            // TODO introduce min/max font sizes from config
-            let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
-            let scaled_size = font_size * self.font_scale as f32 / 100.;
-
-            let (data, width, height) = print_to_new_pixels(
-                &self.sdl2_ttf_ctx,
-                &jpn_text
-                    .morphemes
-                    .iter()
-                    .map(|m| m.text.as_str())
-                    .collect::<Vec<&str>>()
-                    .join("|"),
-                &self.config.font_path,
-                self.hint_color(),
-                self.hint_bg_color(),
-                (scaled_size / 2.) as u32,
-                scaled_size as u16,
-            );
-
-            paint_rgba_pixels_on_window(
-                &self.conn,
-                self.window,
-                &data,
-                x0 + jpn_text.x,
-                y0 + jpn_text.y,
-                width,
-                height,
-            )?
+            self.draw_ocr_result(jpn_text, x0, y0)?;
         }
 
         self.conn.flush()?;
@@ -211,8 +290,7 @@ impl App {
 
         let mut img: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::from_vec(w, h, ocr_area.as_ref().to_vec()).unwrap();
-        // TODO contrast control?
-        image::imageops::colorops::contrast_in_place(&mut img, 75.);
+        image::imageops::colorops::contrast_in_place(&mut img, self.contrast());
 
         // visual debug, re-paint captured area after pre-processing
         // paint_rgba_pixels_on_window(
@@ -248,6 +326,8 @@ impl App {
     }
 
     fn run(self: &mut Self) -> Result<()> {
+        let (config_watcher_rx, _watcher) = watch_config();
+
         let twenty_millis = time::Duration::from_millis(20);
 
         let mut mouse_pos = self.device_state.get_mouse().coords;
@@ -272,10 +352,15 @@ impl App {
         let mut selecting_area = false;
 
         loop {
+            match config_watcher_rx.try_recv() {
+                Ok(notify::DebouncedEvent::Write(_)) => {
+                    self.reload_config(window_mapped)?;
+                }
+                _ => {}
+            }
+
             let pos = self.device_state.get_mouse().coords;
             let keys = self.device_state.get_keys();
-
-            // TODO dynamic config reload
 
             if quit(&keys) {
                 break;
@@ -349,8 +434,9 @@ impl App {
 fn main() -> Result<()> {
     env_logger::init();
 
-    // TODO preferred font family as program args / file config
-    let font_path = get_font_path("Source Han Code JP", "N");
+    let config = load_config();
+
+    let font_path = get_font_path(&config);
 
     let device_state = DeviceState::new();
 
@@ -362,14 +448,6 @@ fn main() -> Result<()> {
 
     let window = create_overlay_fullscreen_window(&conn, &screen)?;
     with_name(&conn, window, "kanjisabi")?;
-
-    let config = Config {
-        font_path,
-        capture_color: (0x00, 0x20, 0x00, 0x20),
-        highlight_color: (0x20, 0x00, 0x00, 0x20),
-        hint_color: (0x32, 0xFF, 0x00, 0xFF),
-        hint_bg_color: (0x00, 0x00, 0x24, 0xC0),
-    };
 
     let mut app = App {
         conn,
@@ -385,6 +463,7 @@ fn main() -> Result<()> {
         capture_x1: 0,
         capture_y1: 0,
         ocr_results: vec![],
+        font_path,
         font_scale: 100,
     };
 
