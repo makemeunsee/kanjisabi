@@ -18,6 +18,8 @@ lindera = { version = "0.12", features = ["ipadic"] }
 log = "0.4"
 notify = "4.0"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
+serde = { version = "1.0", features = ["derive"] }
+serde_with = "1.12"
 sdl2 = { version = "0.35", features = ["ttf"] }
 tesseract = "0.11"
 x11rb = { version = "0.9", features = ["xfixes"] }
