@@ -18,8 +18,8 @@ Powered by:
 ## Requirements
 
 - Running on the system:
-  - A compositor, e.g. `picom`, to handle transparency across windows; should only matter to people running tiling windows managers such as `xmonad` or `i3`
   - A `X11` server, until someone passionate wants to port the UI logic to Wayland/Windows/whatever
+  - A compositor, e.g. `picom`, to handle transparency; this should only be relevant to people running tiling windows managers such as `xmonad` or `i3`, full-fledged desktop environments like KDE or GNOME have their own compositor.
 - Libraries installed on the system:
   - `sdl2` and `sdl2_ttf`
   - `leptonica` and `tesseract`
@@ -33,7 +33,32 @@ Powered by:
 - Release `ctrl` + `alt` to trigger OCR, morphological analysis and translation hints
 - Press `lshift` or `rshift` while the overlay is displayed to increase or decrease the hints font size
 - Press again `ctrl` + `alt` without moving the mouse to discard the overlay
-- `ctrl` + `alt` + `escape` to exit the program 
+- `ctrl` + `alt` + `escape` to exit the program
+
+## Configuration
+
+`kanjisabi` looks for an optional TOML configuration file at `$XDG_CONFIG_HOME/kanjisabi.toml`.
+
+Here's an annotated configuration showing the default values:
+
+```toml
+# what font to use when displaying hints; the first Japanese font found will be used if empty
+font_family = ""
+# valid only if `font_family` is defined and valid; the default font style of the actually used font will be used if empty or not valid
+font_style = ""
+
+# ARGB, the color used to visualize the screen capture area
+color_capture = 0x20002000
+# ARGB, the color used to highlight the parts of the captured area that the OCR managed to read
+color_highlight = 0x20200000
+# ARGB, the font color used when displaying hints in the overlay
+color_hint = 0xFF32FF00
+# ARGB, the background color used when displaying hints in the overlay
+color_hint_bg = 0xC0000024
+
+# float, the contrast increase applied to the captured screen area prior to performing OCR
+preproc_contrast = 100
+```
 
 ## Acknowledgments
 
