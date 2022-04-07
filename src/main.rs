@@ -39,19 +39,20 @@ fn load_config() -> config::Config {
     config::Config::builder()
         .add_source(File::from(config_path()))
         .build()
-        .unwrap()
+        .unwrap_or_default()
 }
 
-fn watch_config() -> (Receiver<DebouncedEvent>, INotifyWatcher) {
+fn watch_config() -> (Receiver<DebouncedEvent>, Option<INotifyWatcher>) {
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher: notify::RecommendedWatcher =
         notify::Watcher::new(tx, time::Duration::from_secs(2)).unwrap();
 
-    watcher
+    let watcher_opt = watcher
         .watch(config_path(), notify::RecursiveMode::NonRecursive)
-        .unwrap();
+        .map(|_| watcher)
+        .ok();
 
-    (rx, watcher)
+    (rx, watcher_opt)
 }
 
 fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
@@ -144,7 +145,7 @@ impl App {
     }
 
     fn contrast(self: &Self) -> f32 {
-        self.config.get_float("prepoc_contrast").unwrap_or(100.) as f32
+        self.config.get_float("preproc_contrast").unwrap_or(100.) as f32
     }
 
     fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {
@@ -326,7 +327,7 @@ impl App {
     }
 
     fn run(self: &mut Self) -> Result<()> {
-        let (config_watcher_rx, _watcher) = watch_config();
+        let (config_rx, config_watcher) = watch_config();
 
         let twenty_millis = time::Duration::from_millis(20);
 
@@ -352,11 +353,13 @@ impl App {
         let mut selecting_area = false;
 
         loop {
-            match config_watcher_rx.try_recv() {
-                Ok(notify::DebouncedEvent::Write(_)) => {
-                    self.reload_config(window_mapped)?;
+            if config_watcher.is_some() {
+                match config_rx.try_recv() {
+                    Ok(notify::DebouncedEvent::Write(_)) => {
+                        self.reload_config(window_mapped)?;
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
 
             let pos = self.device_state.get_mouse().coords;
