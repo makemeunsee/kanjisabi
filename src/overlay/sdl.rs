@@ -67,6 +67,15 @@ impl Overlay {
     }
 }
 
+fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
+    sdl2::pixels::Color::RGBA(
+        (argb >> 16) as u8,
+        (argb >> 8) as u8,
+        argb as u8,
+        (argb >> 24) as u8,
+    )
+}
+
 fn render_text<'a, P>(
     ctx: &'a Sdl2TtfContext,
     text: &str,
@@ -133,15 +142,21 @@ pub fn print_to_new_pixels<P>(
     ctx: &Sdl2TtfContext,
     text: &str,
     font_path: P,
-    color_fg: Color,
-    color_bg: Color,
+    color_fg: u32,
+    color_bg: u32,
     margin: u32,
     point_size: u16,
 ) -> (Vec<u8>, u32, u32)
 where
     P: AsRef<Path>,
 {
-    let text = render_text(ctx, text, font_path, color_fg, point_size);
+    let text = render_text(
+        ctx,
+        text,
+        font_path,
+        argb_to_sdl_color(color_fg),
+        point_size,
+    );
     let width = text.width() + 2 * margin;
     let height = text.height() + 2 * margin;
 
@@ -153,7 +168,14 @@ where
     ));
 
     let mut data = vec![0 as u8; width as usize * height as usize * 4];
-    print_to_pixels(&text, &mut data, width, height, color_bg, dest_rect);
+    print_to_pixels(
+        &text,
+        &mut data,
+        width,
+        height,
+        argb_to_sdl_color(color_bg),
+        dest_rect,
+    );
 
     (data, width, height)
 }
@@ -162,8 +184,8 @@ pub fn print_to_existing_pixels<P>(
     ctx: &Sdl2TtfContext,
     text: &str,
     font_path: &P,
-    color_fg: Color,
-    color_bg: Color,
+    color_fg: u32,
+    color_bg: u32,
     point_size: u16,
     data: &mut [u8],
     width: u32,
@@ -171,9 +193,22 @@ pub fn print_to_existing_pixels<P>(
 ) where
     P: AsRef<Path>,
 {
-    let text = render_text(ctx, text, font_path, color_fg, point_size);
+    let text = render_text(
+        ctx,
+        text,
+        font_path,
+        argb_to_sdl_color(color_fg),
+        point_size,
+    );
 
-    print_to_pixels(&text, data, width, height, color_bg, None);
+    print_to_pixels(
+        &text,
+        data,
+        width,
+        height,
+        argb_to_sdl_color(color_bg),
+        None,
+    );
 }
 
 pub fn print_to_canvas_and_resize<P>(
@@ -181,20 +216,26 @@ pub fn print_to_canvas_and_resize<P>(
     canvas: &mut Canvas<Window>,
     text: &str,
     font_path: &P,
-    color_fg: Color,
-    color_bg: Option<Color>,
+    color_fg: u32,
+    color_bg: Option<u32>,
     point_size: u16,
 ) where
     P: AsRef<Path>,
 {
-    let text = render_text(ctx, text, font_path, color_fg, point_size);
+    let text = render_text(
+        ctx,
+        text,
+        font_path,
+        argb_to_sdl_color(color_fg),
+        point_size,
+    );
 
     canvas
         .window_mut()
         .set_size(text.width(), text.height())
         .unwrap();
     if let Some(color_bg) = color_bg {
-        canvas.set_draw_color(color_bg);
+        canvas.set_draw_color(argb_to_sdl_color(color_bg));
         canvas.clear();
     }
 

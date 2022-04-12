@@ -33,8 +33,8 @@ pub fn main() -> Result<()> {
         &mut text,
         "Aæïůƀłいぇコーピ饅頭",
         &font_path,
-        Color::RGBA(50, 255, 0, 255),
-        Some(Color::RGBA(0, 0, 50, 0)),
+        0xFF32FF00,
+        Some(0x00000032),
         48,
     );
     text.present();
