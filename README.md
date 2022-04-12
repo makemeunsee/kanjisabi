@@ -61,6 +61,16 @@ hint_bg = 0xC0000024
 [preproc]
 # float, the contrast increase applied to the captured screen area prior to performing OCR
 contrast = 100
+
+[keys]
+# main action: screen capture followed by OCR, dismissal of the overlay when displayed
+trigger = ["LControl", "LAlt"]
+# exit the application
+quit = ["LControl", "LAlt", "Escape"]
+# increase the font size
+font_up = ["LShift"]
+# decrease the font size
+font_down = ["RShift"]
 ```
 
 ## Acknowledgments

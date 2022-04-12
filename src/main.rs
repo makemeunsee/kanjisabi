@@ -3,11 +3,10 @@ extern crate screenshot;
 extern crate tesseract;
 
 use anyhow::Result;
-use config::{Config, File};
 use device_query::{DeviceQuery, DeviceState, Keycode};
-use directories::BaseDirs;
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
+use kanjisabi::config::{load_config, watch_config, Config};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
 use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
@@ -17,63 +16,19 @@ use kanjisabi::overlay::x11::{
     with_name, xfixes_init,
 };
 use log::{info, warn};
-use notify::{DebouncedEvent, INotifyWatcher, Watcher};
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
 use std::time;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::rust_connection::RustConnection;
-
-const CONFIG_FILE: &str = "kanjisabi.toml";
-
-fn config_path() -> PathBuf {
-    let mut path = BaseDirs::new().unwrap().config_dir().to_path_buf();
-    path.push(CONFIG_FILE);
-    path
-}
-
-fn load_config() -> config::Config {
-    config::Config::builder()
-        .add_source(File::from(config_path()))
-        .build()
-        .unwrap_or_default()
-}
-
-fn watch_config() -> (Receiver<DebouncedEvent>, Option<INotifyWatcher>) {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher: notify::RecommendedWatcher =
-        notify::Watcher::new(tx, time::Duration::from_secs(2)).unwrap();
-
-    let watcher_opt = watcher
-        .watch(config_path(), notify::RecursiveMode::NonRecursive)
-        .map(|_| watcher)
-        .ok();
-
-    (rx, watcher_opt)
-}
-
-fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
-    sdl2::pixels::Color::RGBA(
-        (argb >> 16) as u8,
-        (argb >> 8) as u8,
-        argb as u8,
-        (argb >> 24) as u8,
-    )
-}
 
 fn same_content<T: std::cmp::PartialEq>(ts0: &[T], ts1: &[T]) -> bool {
     ts0.len() == ts1.len() && ts0.iter().all(|t| ts1.contains(t))
 }
 
 fn get_font_path(config: &Config) -> PathBuf {
-    let family_res = config.get_string("font.family").ok();
-    let style_res = config.get_string("font.style").ok();
-    let family_opt = family_res.as_deref();
-    let style_opt = style_res.as_deref();
-
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
     let first = &fonts
@@ -88,8 +43,8 @@ fn get_font_path(config: &Config) -> PathBuf {
         info!("Using the first font Japanese font available ({})", first);
     };
 
-    if let Some(family) = family_opt {
-        if None == fonts.iter().position(|f| f.0 == family) {
+    if let Some(family) = &config.font.family {
+        if None == fonts.iter().position(|f| f.0 == family.as_str()) {
             warn!(
                 "Requested font ({}) is not available; available Japanese fonts:",
                 family
@@ -97,7 +52,7 @@ fn get_font_path(config: &Config) -> PathBuf {
             print_fonts();
             path_to_font(&fc, &first, None).unwrap()
         } else {
-            path_to_font(&fc, family, style_opt).unwrap()
+            path_to_font(&fc, family.as_str(), config.font.style.as_deref()).unwrap()
         }
     } else {
         warn!("No font specified; available Japanese fonts:");
@@ -128,35 +83,13 @@ struct App {
 }
 
 impl App {
-    fn capture_color(self: &Self) -> u32 {
-        self.config.get_int("colors.capture").unwrap_or(0x20002000) as u32
-    }
-
-    fn highlight_color(self: &Self) -> u32 {
-        self.config
-            .get_int("colors.highlight")
-            .unwrap_or(0x20200000) as u32
-    }
-
-    fn hint_color(self: &Self) -> sdl2::pixels::Color {
-        argb_to_sdl_color(self.config.get_int("colors.hint").unwrap_or(0xFF32FF00) as u32)
-    }
-
-    fn hint_bg_color(self: &Self) -> sdl2::pixels::Color {
-        argb_to_sdl_color(self.config.get_int("colors.hint_bg").unwrap_or(0xC0000024) as u32)
-    }
-
-    fn contrast(self: &Self) -> f32 {
-        self.config.get_float("preproc.contrast").unwrap_or(100.) as f32
-    }
-
     fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {
         info!("Configuration changed, refreshing...");
-        let old_contrast = self.contrast();
+        let old_contrast = self.config.preproc.contrast;
         self.config = load_config();
         self.font_path = get_font_path(&self.config);
         if window_mapped {
-            let new_contrast = self.contrast();
+            let new_contrast = self.config.preproc.contrast;
             if old_contrast != new_contrast {
                 self.reset_ocr()?;
                 self.draw_capture_area()?;
@@ -204,7 +137,15 @@ impl App {
         let y = std::cmp::min(self.capture_y0, self.capture_y1) as i16;
         let w = (self.capture_x0 - self.capture_x1).abs() as u16;
         let h = (self.capture_y0 - self.capture_y1).abs() as u16;
-        draw_a_rectangle(&self.conn, self.window, x, y, w, h, self.capture_color())?;
+        draw_a_rectangle(
+            &self.conn,
+            self.window,
+            x,
+            y,
+            w,
+            h,
+            self.config.colors.capture,
+        )?;
 
         self.conn.flush()?;
 
@@ -219,7 +160,7 @@ impl App {
             y0 + jpn_text.y as i16,
             jpn_text.w as u16,
             jpn_text.h as u16,
-            self.highlight_color(),
+            self.config.colors.highlight,
         )?;
 
         Ok(())
@@ -252,8 +193,8 @@ impl App {
                 .collect::<Vec<&str>>()
                 .join("|"),
             &self.font_path,
-            self.hint_color(),
-            self.hint_bg_color(),
+            self.config.colors.hint,
+            self.config.colors.hint_bg,
             (scaled_size / 2.) as u32,
             scaled_size as u16,
         );
@@ -293,7 +234,7 @@ impl App {
 
         let mut img: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::from_vec(w, h, ocr_area.as_ref().to_vec()).unwrap();
-        image::imageops::colorops::contrast_in_place(&mut img, self.contrast());
+        image::imageops::colorops::contrast_in_place(&mut img, self.config.preproc.contrast);
 
         // visual debug, re-paint captured area after pre-processing
         // paint_rgba_pixels_on_window(
@@ -328,6 +269,22 @@ impl App {
         Ok(())
     }
 
+    fn trigger(self: &Self, keys: &Vec<Keycode>) -> bool {
+        same_content(keys, &self.config.keys.trigger)
+    }
+
+    fn quit(self: &Self, keys: &Vec<Keycode>) -> bool {
+        same_content(keys, &self.config.keys.quit)
+    }
+
+    fn font_up(self: &Self, keys: &Vec<Keycode>) -> bool {
+        same_content(keys, &self.config.keys.font_up)
+    }
+
+    fn font_down(self: &Self, keys: &Vec<Keycode>) -> bool {
+        same_content(keys, &self.config.keys.font_down)
+    }
+
     fn run(self: &mut Self) -> Result<()> {
         let (config_rx, config_watcher) = watch_config();
 
@@ -335,21 +292,8 @@ impl App {
 
         let mut mouse_pos = self.device_state.get_mouse().coords;
 
-        // TODO get keys from config
-        let trigger =
-            |keys: &Vec<Keycode>| same_content(keys, &vec![Keycode::LControl, Keycode::LAlt]);
-
         let mut increased = false;
         let mut decreased = false;
-        let increase_font = |keys: &Vec<Keycode>| same_content(keys, &vec![Keycode::LShift]);
-        let decrease_font = |keys: &Vec<Keycode>| same_content(keys, &vec![Keycode::RShift]);
-
-        let quit = |keys: &Vec<Keycode>| {
-            same_content(
-                keys,
-                &vec![Keycode::LControl, Keycode::LAlt, Keycode::Escape],
-            )
-        };
 
         let mut window_mapped = false;
         let mut selecting_area = false;
@@ -367,11 +311,11 @@ impl App {
             let pos = self.device_state.get_mouse().coords;
             let keys = self.device_state.get_keys();
 
-            if quit(&keys) {
+            if self.quit(&keys) {
                 break;
             }
 
-            if increase_font(&keys) {
+            if self.font_up(&keys) {
                 if window_mapped && !increased {
                     increased = true;
                     let new_font_scale = (self.font_scale + 25).max(50).min(200);
@@ -384,7 +328,7 @@ impl App {
                 increased = false;
             }
 
-            if decrease_font(&keys) {
+            if self.font_down(&keys) {
                 if window_mapped && !decreased {
                     decreased = true;
                     let new_font_scale = (self.font_scale - 25).max(50).min(200);
@@ -397,7 +341,7 @@ impl App {
                 decreased = false;
             }
 
-            if trigger(&keys) {
+            if self.trigger(&keys) {
                 if selecting_area {
                     if pos != mouse_pos {
                         if !window_mapped {
