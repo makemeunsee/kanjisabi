@@ -19,7 +19,7 @@ fn main() {
     println!("{}", text);
 
     // `Token.detail` structure (empirical)
-    // [type, subtype, detail1, detail2, verb group, verb form, dict form, alt pronunciation1?, alt pronunciation2?]
+    // [type, subtype, detail1, detail2, verb group, verb form, unconjugated, alt pronunciation1?, alt pronunciation2?]
 
     // 名詞: noun
     //   固有名詞: proper noun

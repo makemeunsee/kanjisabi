@@ -67,6 +67,7 @@ fn is_katakana(c: char) -> bool {
 impl JpnOCR {
     pub fn new() -> JpnOCR {
         JpnOCR {
+            // TODO try to support 'jpn_vert' too; initial tries gave very bad results
             ocr: OCR {
                 lang: String::from("jpn"),
             },
@@ -198,8 +199,12 @@ impl JpnOCR {
                 detail: t.detail.clone(),
                 bbox: Some(bbox),
             };
-            morphemes.push(morpheme);
             char_index += len;
+            print_jmdict_results(&morpheme.text);
+            if morpheme.detail.len() >= 7 {
+                print_jmdict_results(&morpheme.detail[6]);
+            }
+            morphemes.push(morpheme);
         }
 
         JpnText {
@@ -210,5 +215,19 @@ impl JpnOCR {
             w,
             h,
         }
+    }
+}
+
+pub fn print_jmdict_results(text: &str) {
+    match jmdict::entries().find(|e| e.kanji_elements().any(|k| k.text == text)) {
+        Some(entry) => {
+            let glosses: Vec<&str> = entry
+                .senses()
+                .flat_map(|s| s.glosses())
+                .map(|g| g.text)
+                .collect();
+            println!("{} -> {:?}", text, glosses);
+        }
+        None => (),
     }
 }

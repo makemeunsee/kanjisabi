@@ -1,5 +1,6 @@
 pub mod jpn;
 
+use log::debug;
 use tesseract::Tesseract;
 
 use anyhow::{anyhow, Result};
@@ -33,6 +34,8 @@ impl OCR {
             .set_frame(frame_data, width, height, bytes_per_pixel, bytes_per_line)?
             .recognize()?
             .get_tsv_text(0)?;
+
+        debug!("OCR raw result: {}", tsv);
 
         Ok(tsv
             .lines()

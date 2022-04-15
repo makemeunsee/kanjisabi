@@ -18,7 +18,7 @@ where
     conn.xfixes_query_version(100, 0).unwrap();
 }
 
-/// from https://stackoverflow.com/a/33735384
+/// from <https://stackoverflow.com/a/33735384>
 pub fn input_passthrough<Conn>(conn: &Conn, win_id: u32) -> Result<()>
 where
     Conn: Connection,
@@ -49,8 +49,8 @@ where
     Ok(())
 }
 
-/// from https://stackoverflow.com/a/16235920
-/// possible alt: https://github.com/libsdl-org/SDL/blob/85e6500065bbe37e9131c0ff9cd7e5af6d256730/src/video/x11/SDL_x11window.c#L153-L175
+/// from <https://stackoverflow.com/a/16235920>
+/// possible alt: <https://github.com/libsdl-org/SDL/blob/85e6500065bbe37e9131c0ff9cd7e5af6d256730/src/video/x11/SDL_x11window.c#L153-L175>
 pub fn always_on_top<Conn>(conn: &Conn, root_win_id: u32, win_id: u32) -> Result<()>
 where
     Conn: Connection,

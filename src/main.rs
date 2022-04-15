@@ -15,7 +15,7 @@ use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window, raise,
     with_name, xfixes_init,
 };
-use log::{info, warn};
+use log::{debug, info, trace, warn};
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
@@ -69,7 +69,6 @@ struct App {
     // helpers
     sdl2_ttf_ctx: Sdl2TtfContext,
     ocr: JpnOCR,
-    device_state: DeviceState,
     // states
     conn: RustConnection,
     window: Window,
@@ -78,6 +77,7 @@ struct App {
     capture_x1: i32,
     capture_y1: i32,
     ocr_results: Vec<JpnText>,
+    result_index: usize,
     font_scale: i32,
     font_path: PathBuf,
 }
@@ -120,6 +120,7 @@ impl App {
 
     fn reset_ocr(self: &mut Self) -> Result<()> {
         self.ocr_results.clear();
+        self.result_index = 0;
         self.clear_overlay()?;
         Ok(())
     }
@@ -128,7 +129,7 @@ impl App {
         self.clear_overlay()?;
         self.draw_capture_area()?;
         self.draw_highlights()?;
-        self.draw_ocr_results()?;
+        self.draw_hint()?;
         Ok(())
     }
 
@@ -212,15 +213,18 @@ impl App {
         Ok(())
     }
 
-    fn draw_ocr_results(self: &Self) -> Result<()> {
-        let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
-        let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
+    fn draw_hint(self: &Self) -> Result<()> {
+        match self.ocr_results.get(self.result_index) {
+            Some(jpn_text) => {
+                let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
+                let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
 
-        for jpn_text in &self.ocr_results {
-            self.draw_ocr_result(jpn_text, x0, y0)?;
+                self.draw_ocr_result(jpn_text, x0, y0)?;
+
+                self.conn.flush()?;
+            }
+            None => (),
         }
-
-        self.conn.flush()?;
         Ok(())
     }
 
@@ -262,7 +266,7 @@ impl App {
 
         self.draw_highlights()?;
 
-        self.draw_ocr_results()?;
+        self.draw_hint()?;
 
         // self.draw_translations();
 
@@ -285,15 +289,21 @@ impl App {
         same_content(keys, &self.config.keys.font_down)
     }
 
+    fn next_hint(self: &Self, keys: &Vec<Keycode>) -> bool {
+        same_content(keys, &self.config.keys.next_hint)
+    }
+
     fn run(self: &mut Self) -> Result<()> {
         let (config_rx, config_watcher) = watch_config();
 
         let twenty_millis = time::Duration::from_millis(20);
 
-        let mut mouse_pos = self.device_state.get_mouse().coords;
+        let device_state = DeviceState::new();
+        let mut mouse_pos = device_state.get_mouse().coords;
 
         let mut increased = false;
         let mut decreased = false;
+        let mut next_hint_requested = false;
 
         let mut window_mapped = false;
         let mut selecting_area = false;
@@ -308,10 +318,11 @@ impl App {
                 }
             }
 
-            let pos = self.device_state.get_mouse().coords;
-            let keys = self.device_state.get_keys();
+            let pos = device_state.get_mouse().coords;
+            let keys = device_state.get_keys();
 
             if self.quit(&keys) {
+                debug!("quit keys down, exiting");
                 break;
             }
 
@@ -341,33 +352,53 @@ impl App {
                 decreased = false;
             }
 
+            if self.next_hint(&keys) {
+                debug!("next hint requested");
+                if self.ocr_results.len() > 0 && !next_hint_requested {
+                    self.result_index = (self.result_index + 1) % self.ocr_results.len();
+                    self.redraw_all()?;
+                }
+                next_hint_requested = true;
+            } else {
+                next_hint_requested = false;
+            }
+
             if self.trigger(&keys) {
+                trace!("trigger keys down");
                 if selecting_area {
                     if pos != mouse_pos {
                         if !window_mapped {
+                            debug!("mapping overlay");
                             self.conn.map_window(self.window)?;
                             raise(&self.conn, self.window)?;
                             window_mapped = true;
                         }
+                        trace!("adjusting capture area");
                         (self.capture_x1, self.capture_y1) = pos;
                         self.clear_overlay()?;
                         self.draw_capture_area()?;
                     }
                 } else {
+                    debug!("starting capture area selection");
                     selecting_area = true;
                     (self.capture_x0, self.capture_y0) = pos;
                     (self.capture_x1, self.capture_y1) = pos;
                     self.reset_ocr()?;
                     if window_mapped {
+                        debug!("hiding overlay");
                         self.conn.unmap_window(self.window)?;
                         window_mapped = false;
                     }
                 }
             } else {
                 if selecting_area {
+                    debug!("stopping capture area selection");
                     selecting_area = false;
                     // TODO visual hint of OCR in progress?
-                    self.perform_ocr()?;
+                    if self.capture_x0 != self.capture_x1 && self.capture_y0 != self.capture_y1 {
+                        debug!("performing OCR");
+                        self.perform_ocr()?;
+                    }
                 }
             }
 
@@ -384,10 +415,7 @@ fn main() -> Result<()> {
     env_logger::init();
 
     let config = load_config();
-
-    let font_path = get_font_path(&config);
-
-    let device_state = DeviceState::new();
+    debug!("{:?}", config);
 
     let (conn, screen_num) = x11rb::connect(None)?;
     xfixes_init(&conn);
@@ -401,18 +429,18 @@ fn main() -> Result<()> {
     let mut app = App {
         conn,
         sdl2_ttf_ctx: sdl2::ttf::init()?,
+        font_path: get_font_path(&config),
         config,
         screen_w,
         screen_h,
         ocr: JpnOCR::new(),
-        device_state,
         window,
         capture_x0: 0,
         capture_y0: 0,
         capture_x1: 0,
         capture_y1: 0,
         ocr_results: vec![],
-        font_path,
+        result_index: 0,
         font_scale: 100,
     };
 

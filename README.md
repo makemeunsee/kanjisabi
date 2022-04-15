@@ -62,6 +62,7 @@ hint_bg = 0xC0000024
 # float, the contrast increase applied to the captured screen area prior to performing OCR
 contrast = 100
 
+# global hotkeys for controlling the app; keys are device_query's Keycodes: <https://docs.rs/device_query/latest/device_query/keymap/enum.Keycode.html>
 [keys]
 # main action: screen capture followed by OCR, dismissal of the overlay when displayed
 trigger = ["LControl", "LAlt"]
@@ -71,6 +72,8 @@ quit = ["LControl", "LAlt", "Escape"]
 font_up = ["LShift"]
 # decrease the font size
 font_down = ["RShift"]
+# cycle through the translation hints to display
+next_hint = ["LControl"]
 ```
 
 ## Acknowledgments

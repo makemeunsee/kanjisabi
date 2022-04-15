@@ -172,6 +172,10 @@ fn default_font_down() -> Vec<Keycode> {
     vec![Keycode::RShift]
 }
 
+fn default_next_hint() -> Vec<Keycode> {
+    vec![Keycode::LControl]
+}
+
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct Keys {
@@ -187,6 +191,9 @@ pub struct Keys {
     #[serde_as(as = "Vec<LocalKeycode>")]
     #[serde(default = "default_font_down")]
     pub font_down: Vec<Keycode>,
+    #[serde_as(as = "Vec<LocalKeycode>")]
+    #[serde(default = "default_next_hint")]
+    pub next_hint: Vec<Keycode>,
 }
 
 impl Default for Keys {
@@ -196,6 +203,7 @@ impl Default for Keys {
             quit: default_quit(),
             font_up: default_font_up(),
             font_down: default_font_up(),
+            next_hint: default_next_hint(),
         }
     }
 }
