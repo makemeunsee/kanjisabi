@@ -1,8 +1,11 @@
 use std::collections::BTreeMap;
 
+use crate::morph::categorize;
+
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
+use jmdict::Entry;
 use lindera::tokenizer::Tokenizer;
 use log::warn;
 
@@ -178,8 +181,8 @@ impl JpnOCR {
         let mut morphemes = vec![];
 
         let mut char_index = 0;
-        for t in tokens {
-            let len = t.text.chars().count();
+        for token in tokens {
+            let len = token.text.chars().count();
             let mut x = std::i32::MAX;
             let mut y = std::i32::MAX;
             let mut w = 0;
@@ -195,15 +198,22 @@ impl JpnOCR {
 
             let bbox = (x, y, w, h);
             let morpheme = Morpheme {
-                text: t.text.to_owned(),
-                detail: t.detail.clone(),
+                text: token.text.to_owned(),
+                detail: token.detail.clone(),
                 bbox: Some(bbox),
             };
             char_index += len;
-            print_jmdict_results(&morpheme.text);
-            if morpheme.detail.len() >= 7 {
-                print_jmdict_results(&morpheme.detail[6]);
-            }
+
+            println!("morpheme: {}", morpheme.text);
+            println!("{:?}", categorize(&token));
+            // print_jmdict_results(&morpheme.text);
+            // if let Some(dict_form) = morpheme.detail.get(6) {
+            //     if dict_form != &morpheme.text {
+            //         println!("morpheme dict form: {}", dict_form);
+            //         print_jmdict_results(&dict_form);
+            //     }
+            // }
+
             morphemes.push(morpheme);
         }
 
@@ -219,15 +229,22 @@ impl JpnOCR {
 }
 
 pub fn print_jmdict_results(text: &str) {
+    println!("->");
     match jmdict::entries().find(|e| e.kanji_elements().any(|k| k.text == text)) {
-        Some(entry) => {
-            let glosses: Vec<&str> = entry
-                .senses()
-                .flat_map(|s| s.glosses())
-                .map(|g| g.text)
-                .collect();
-            println!("{} -> {:?}", text, glosses);
-        }
-        None => (),
+        Some(entry) => print_entry(&entry),
+        None => match jmdict::entries().find(|e| e.reading_elements().any(|k| k.text == text)) {
+            Some(entry) => print_entry(&entry),
+            None => (),
+        },
+    }
+
+    fn print_entry(entry: &Entry) {
+        let glosses: Vec<&str> = entry
+            .senses()
+            .flat_map(|s| s.glosses())
+            .map(|g| g.text)
+            .collect();
+        let readings: Vec<&str> = entry.reading_elements().map(|re| re.text).collect();
+        println!("{:?}\n{:?}", readings, glosses);
     }
 }

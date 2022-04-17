@@ -33,8 +33,8 @@ fn main() {
     //   係助詞: binding particle
     //   並立助詞: parallel marker
     // 動詞: verb
-    //   自立: independant
-    //   非自立: not independant
+    //   自立: independent
+    //   非自立: not independent
     // 助動詞: auxiliary verb
     // 形容詞: adjective
     // 副詞: adverb
