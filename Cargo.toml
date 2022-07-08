@@ -14,7 +14,7 @@ env_logger = "0.9"
 fontconfig = "0.5"
 image = "0.24"
 jmdict = "2.0"
-lindera = { version = "0.12", features = ["ipadic"] }
+lindera = { version = "0.12", features = ["unidic"] }
 log = "0.4"
 notify = "4.0"
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }

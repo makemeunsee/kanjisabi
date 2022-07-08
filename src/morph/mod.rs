@@ -11,7 +11,7 @@ pub enum LexicalCategory {
     AdjectiveI,
     Adverb,
     AdverbificationParticle,
-    AdjectificationParticle,
+    AdjectivisationParticle,
     ConjunctionParticle,
     Verb,
     AuxiliaryVerb,
@@ -56,6 +56,8 @@ pub fn categorize(token: &Token) -> Option<LexicalCategory> {
         // Copulas, auxiliary verbs
         // e.g. な of na-adj
         ["助動詞", _, _, _, _, "体言接続", _, _, _] => Some(LexicalCategory::AuxiliaryNa),
+        // continuous (て) / adverbial form
+        ["助動詞", _, _, _, _, "連用テ接続", _, _, _] => Some(LexicalCategory::Adverb),
         // e.g. だ、です、まし(た)
         ["助動詞", _, _, _, _, _, _, _, _] => Some(LexicalCategory::AuxiliaryVerb),
 
@@ -70,7 +72,7 @@ pub fn categorize(token: &Token) -> Option<LexicalCategory> {
         }
         // e.g. −の−
         ["助詞", "連体化", _, _, _, _, _, _, _] => {
-            Some(LexicalCategory::AdjectificationParticle)
+            Some(LexicalCategory::AdjectivisationParticle)
         }
         // case marking particle
         ["助詞", "格助詞", _, _, _, _, _, _, _] => Some(LexicalCategory::Particle),
@@ -100,7 +102,7 @@ fn きれいな_is_keiyoudoushi() {
     use lindera::tokenizer::Tokenizer;
     let tokens = Tokenizer::new().unwrap().tokenize("きれいな").unwrap();
     assert_eq!(tokens.len(), 2);
-    assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Keiyoudoushi));
+    assert_eq!(categorize(&tokens[0]), None);
     assert_eq!(categorize(&tokens[1]), Some(LexicalCategory::AuxiliaryNa));
 }
 
@@ -109,11 +111,20 @@ fn きれいに_is_keiyoudoushi() {
     use lindera::tokenizer::Tokenizer;
     let tokens = Tokenizer::new().unwrap().tokenize("きれいに").unwrap();
     assert_eq!(tokens.len(), 2);
-    assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Keiyoudoushi));
+    assert_eq!(categorize(&tokens[0]), None);
     assert_eq!(
         categorize(&tokens[1]),
         Some(LexicalCategory::AdverbificationParticle)
     );
+}
+
+#[test]
+fn きれいで() {
+    use lindera::tokenizer::Tokenizer;
+    let tokens = Tokenizer::new().unwrap().tokenize("きれいで").unwrap();
+    assert_eq!(tokens.len(), 2);
+    assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Keiyoudoushi));
+    assert_eq!(categorize(&tokens[1]), Some(LexicalCategory::AuxiliaryVerb));
 }
 
 #[test]
@@ -157,13 +168,13 @@ fn 難しく_is_adverb() {
     assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Adverb));
 }
 
-// #[test]
-// fn 大抵_is_adverb() {
-//     use lindera::tokenizer::Tokenizer;
-//     let tokens = Tokenizer::new().unwrap().tokenize("大抵").unwrap();
-//     assert_eq!(tokens.len(), 1);
-//     assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Adverb));
-// }
+#[test]
+fn 大抵_is_adverb() {
+    use lindera::tokenizer::Tokenizer;
+    let tokens = Tokenizer::new().unwrap().tokenize("大抵").unwrap();
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Adverb));
+}
 
 #[test]
 fn あまり_is_adverb() {
@@ -189,6 +200,19 @@ fn 高くなく_is_adverb() {
     assert_eq!(tokens.len(), 2);
     assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Adverb));
     assert_eq!(categorize(&tokens[1]), Some(LexicalCategory::Adverb));
+}
+
+#[test]
+fn 高くなくて() {
+    use lindera::tokenizer::Tokenizer;
+    let tokens = Tokenizer::new().unwrap().tokenize("高くなくて").unwrap();
+    assert_eq!(tokens.len(), 3);
+    assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Adverb));
+    assert_eq!(categorize(&tokens[1]), Some(LexicalCategory::Adverb));
+    assert_eq!(
+        categorize(&tokens[2]),
+        Some(LexicalCategory::ConjunctionParticle)
+    );
 }
 
 #[test]
@@ -255,4 +279,21 @@ fn 降らない_is_verb() {
     assert_eq!(tokens.len(), 2);
     assert_eq!(categorize(&tokens[0]), Some(LexicalCategory::Verb));
     assert_eq!(categorize(&tokens[1]), Some(LexicalCategory::AuxiliaryVerb));
+}
+
+#[test]
+fn ために() {
+    use lindera::tokenizer::Tokenizer;
+    let tokens = Tokenizer::new().unwrap().tokenize("ために").unwrap();
+    assert_eq!(tokens.len(), 2);
+    assert_eq!(categorize(&tokens[0]), None);
+    assert_eq!(categorize(&tokens[1]), None);
+}
+
+#[test]
+fn ため() {
+    use lindera::tokenizer::Tokenizer;
+    let tokens = Tokenizer::new().unwrap().tokenize("ため").unwrap();
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(categorize(&tokens[0]), None);
 }

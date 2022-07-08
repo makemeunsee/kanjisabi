@@ -18,7 +18,7 @@ fn main() {
     }
     println!("{}", text);
 
-    // `Token.detail` structure (empirical)
+    // `Token.detail` structure (IPADIC, empirical)
     // [type, subtype, detail1, detail2, verb group, verb form, unconjugated, alt pronunciation1?, alt pronunciation2?]
 
     // 名詞: noun
