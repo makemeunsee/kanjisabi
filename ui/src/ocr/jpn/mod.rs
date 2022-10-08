@@ -1,19 +1,19 @@
 use std::collections::BTreeMap;
 
-use crate::morph::categorize;
+use crate::morph_client::BlockingClient;
 
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
 use jmdict::Entry;
-use lindera::tokenizer::Tokenizer;
-use log::warn;
+use log::info;
+use proto::Sentence;
 
 pub struct JpnOCR {
     ocr: OCR,
     threshold: f32,
     discriminator: fn(&str) -> bool,
-    tokenizer: Tokenizer,
+    client: BlockingClient,
 }
 
 #[derive(Debug)]
@@ -31,7 +31,6 @@ pub struct Morpheme {
 #[derive(Debug)]
 pub struct JpnText {
     pub morphemes: Vec<Morpheme>,
-    pub text: String,
     pub x: i32,
     pub y: i32,
     pub w: i32,
@@ -68,7 +67,7 @@ fn is_katakana(c: char) -> bool {
 }
 
 impl JpnOCR {
-    pub fn new() -> JpnOCR {
+    pub fn new(client: BlockingClient) -> JpnOCR {
         JpnOCR {
             // TODO try to support 'jpn_vert' too; initial tries gave very bad results
             ocr: OCR {
@@ -80,12 +79,12 @@ impl JpnOCR {
                 s.chars()
                     .all(|c| is_kanji(c) || is_katakana(c) || is_hiragana(c))
             },
-            tokenizer: Tokenizer::new().unwrap(),
+            client,
         }
     }
 
     pub fn recognize(
-        self: &Self,
+        self: &mut Self,
         frame_data: &[u8],
         width: i32,
         height: i32,
@@ -98,7 +97,7 @@ impl JpnOCR {
         Ok(self.from_ocr_words(&ocr_words))
     }
 
-    pub fn from_ocr_words(self: &Self, words: &Vec<OCRWord>) -> Vec<JpnText> {
+    fn from_ocr_words(self: &mut Self, words: &Vec<OCRWord>) -> Vec<JpnText> {
         words
             .into_iter()
             .fold(
@@ -114,19 +113,21 @@ impl JpnOCR {
     }
 
     /// digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
-    pub fn from_line(self: &Self, line: &Vec<&OCRWord>) -> Vec<JpnText> {
-        line.split(|w| w.conf <= self.threshold || !(self.discriminator)(&w.text))
-            .filter_map(|seq| {
-                if seq.len() == 0 {
-                    None
-                } else {
-                    Some(self.from_word_seq(seq))
-                }
-            })
-            .collect()
+    fn from_line(self: &mut Self, line: &Vec<&OCRWord>) -> Vec<JpnText> {
+        let threshold = self.threshold;
+        let discriminator = self.discriminator;
+        let is_valid_jpn = |w: &&OCRWord| w.conf <= threshold || !(discriminator)(&w.text);
+        let to_jpn = |seq: &[&OCRWord]| {
+            if seq.is_empty() {
+                None
+            } else {
+                Some(self.from_word_seq(seq))
+            }
+        };
+        line.split(is_valid_jpn).filter_map(to_jpn).collect()
     }
 
-    fn from_word_seq(self: &Self, seq: &[&OCRWord]) -> JpnText {
+    fn from_word_seq(self: &mut Self, seq: &[&OCRWord]) -> JpnText {
         let chars_in_seq = seq
             .iter()
             .map(|t| t.text.chars().count() as u32)
@@ -159,7 +160,15 @@ impl JpnOCR {
         y = (y as f32 / chars_in_seq as f32) as i32;
         h = (h as f32 / chars_in_seq as f32) as i32;
 
-        let tokens = self.tokenizer.tokenize(&text).unwrap();
+        // let tokens = self.tokenizer.tokenize(&text).unwrap();
+        let tokens = self
+            .client
+            .analyze(Sentence {
+                sentence: text.clone(),
+            })
+            .unwrap()
+            .into_inner()
+            .tokens;
 
         let chars_in_tokens = tokens
             .iter()
@@ -167,10 +176,13 @@ impl JpnOCR {
             .sum::<u32>();
 
         if chars_in_seq != chars_in_tokens {
-            warn!("Inconsistent morphological analysis results, discarding them");
+            info!("Inconsistent morphological analysis results, discarding them");
             return JpnText {
-                morphemes: vec![],
-                text,
+                morphemes: vec![Morpheme {
+                    text: text.clone(),
+                    detail: vec![],
+                    bbox: Some((x, y, w, h)),
+                }],
                 x,
                 y,
                 w,
@@ -199,13 +211,16 @@ impl JpnOCR {
             let bbox = (x, y, w, h);
             let morpheme = Morpheme {
                 text: token.text.to_owned(),
-                detail: token.detail.clone(),
+                detail: vec![token.dict_form, token.part_of_speech.to_string()],
                 bbox: Some(bbox),
             };
             char_index += len;
 
             println!("morpheme: {}", morpheme.text);
-            println!("{:?}", categorize(&token));
+
+            // TODO restore
+            // println!("{:?}", categorize(&token));
+
             // print_jmdict_results(&morpheme.text);
             // if let Some(dict_form) = morpheme.detail.get(6) {
             //     if dict_form != &morpheme.text {
@@ -219,7 +234,6 @@ impl JpnOCR {
 
         JpnText {
             morphemes,
-            text,
             x,
             y,
             w,

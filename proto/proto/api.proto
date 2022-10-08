@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package proto;
+
+//
+// Server API
+//
+
+service Api {
+  rpc Dictionary(Empty) returns (DictName) {}
+  
+  rpc Analyze(Sentence) returns (TokenList) {}
+}
+
+message Empty {}
+
+message DictName {
+  string name = 1;
+}
+
+message Sentence {
+  string sentence = 1;
+}
+
+message Token {
+  string text = 1;
+  string dict_form = 2;
+  enum PartOfSpeech {
+    NOUN = 0;
+    PROPER_NOUN = 1;
+    KEIYOUSHI = 2; // I-adj
+    KEIYODOSHI = 3; // NA-adj
+    ADJECTIVE_NO = 4;
+    ADVERB = 5;
+    AUXILIARY = 6;
+    COPULA = 7;
+    COUNTER = 8;
+    NUMERIC = 9;
+    PRONOUN = 10;
+    PARTICLE = 11;
+    CONJUNCTION = 12;
+    VERB_ICHIDAN = 13;
+    VERB_GODAN = 14;
+    VERB_IRREGULAR = 15;
+    VERB_SURU = 16;
+    SIGN = 17;
+    OTHER = 18;
+  }
+  PartOfSpeech part_of_speech = 3;
+}
+
+message TokenList {
+  repeated Token tokens = 1;
+}

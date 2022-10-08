@@ -1,29 +1,7 @@
-[package]
-name = "kanjisabi"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+	"ui",
+	"morph_server",
+	"proto",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-anyhow = "1.0"
-config = { version = "0.13", features = ["toml"] }
-device_query = "1.0"
-directories = "4.0"
-env_logger = "0.9"
-fontconfig = "0.5"
-image = "0.24"
-jmdict = "2.0"
-lindera = { version = "0.12", features = ["ipadic"] }
-log = "0.4"
-notify = "4.0"
-screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
-serde = { version = "1.0", features = ["derive"] }
-serde_with = "1.12"
-sdl2 = { version = "0.35", features = ["ttf"] }
-tesseract = "0.11"
-toml = "0.5"
-x11rb = { version = "0.9", features = ["xfixes"] }
-
-[dev-dependencies]
-qt_widgets = "0.5"

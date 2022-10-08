@@ -41,7 +41,8 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "env": {
-                "RUST_LOG": "info"
+                "RUST_LOG": "info",
+                "RUST_BACKTRACE": "1"
             }
         },
         {
@@ -131,6 +132,117 @@
                 ],
                 "filter": {
                     "name": "sdl2_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'jmdict'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=jmdict",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "jmdict",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'jmdict'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=jmdict",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "jmdict",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'x11_overlay'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=x11_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'x11_overlay'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=x11_overlay",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11_overlay",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'x11-sdl2_mix'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=x11-sdl2_mix",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11-sdl2_mix",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'x11-sdl2_mix'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=x11-sdl2_mix",
+                    "--package=kanjisabi"
+                ],
+                "filter": {
+                    "name": "x11-sdl2_mix",
                     "kind": "example"
                 }
             },
@@ -242,80 +354,6 @@
                 ],
                 "filter": {
                     "name": "lindera",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'x11-sdl2_mix'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=x11-sdl2_mix",
-                    "--package=kanjisabi"
-                ],
-                "filter": {
-                    "name": "x11-sdl2_mix",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'x11-sdl2_mix'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=x11-sdl2_mix",
-                    "--package=kanjisabi"
-                ],
-                "filter": {
-                    "name": "x11-sdl2_mix",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'x11_overlay'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=x11_overlay",
-                    "--package=kanjisabi"
-                ],
-                "filter": {
-                    "name": "x11_overlay",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'x11_overlay'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=x11_overlay",
-                    "--package=kanjisabi"
-                ],
-                "filter": {
-                    "name": "x11_overlay",
                     "kind": "example"
                 }
             },

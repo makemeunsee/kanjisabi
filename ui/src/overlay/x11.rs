@@ -32,7 +32,7 @@ where
         y_offset: 0,
         region: 0,
     };
-    set_shape_request.send(conn)?;
+    conn.send_trait_request_without_reply(set_shape_request)?;
 
     let set_shape_request = SetWindowShapeRegionRequest {
         dest: win_id,
@@ -41,7 +41,7 @@ where
         y_offset: 0,
         region: rw.region(),
     };
-    set_shape_request.send(conn)?;
+    conn.send_trait_request_without_reply(set_shape_request)?;
 
     // TODO: does not fail but now triggers an error event, though it did not when it was inlined in main, ??
     destroy_region(conn, rw.region())?;

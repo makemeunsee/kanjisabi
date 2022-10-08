@@ -8,6 +8,7 @@ use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::config::{load_config, watch_config, Config};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
+use kanjisabi::morph_client::BlockingClient;
 use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
 use kanjisabi::overlay::sdl::print_to_new_pixels;
@@ -417,6 +418,8 @@ fn main() -> Result<()> {
     let config = load_config();
     debug!("{:?}", config);
 
+    let morph_client = BlockingClient::connect("http://[::1]:55555")?;
+
     let (conn, screen_num) = x11rb::connect(None)?;
     xfixes_init(&conn);
     let screen = &conn.setup().roots[screen_num];
@@ -433,7 +436,7 @@ fn main() -> Result<()> {
         config,
         screen_w,
         screen_h,
-        ocr: JpnOCR::new(),
+        ocr: JpnOCR::new(morph_client),
         window,
         capture_x0: 0,
         capture_y0: 0,
