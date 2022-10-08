@@ -1,7 +1,8 @@
 [workspace]
 members = [
-	"ui",
-	"morph_server",
-	"proto",
+    "morph_client",
+    "morph_server",
+    "proto",
+    "tests",
+    # "ui",
 ]
-

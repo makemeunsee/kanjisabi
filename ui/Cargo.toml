@@ -16,13 +16,13 @@ image = "0.24"
 jmdict = "2.0"
 log = "0.4"
 notify = "5.0"
-proto = { path = "../proto" }
+morph_client = { path = "../morph_client" }
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = "2.0"
 sdl2 = { version = "0.35", features = ["ttf"] }
 tesseract = "0.12"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.21", features = ["full"] }
 tonic = "0.8"
 toml = "0.5"
 x11rb = { version = "0.10", features = ["xfixes"] }
