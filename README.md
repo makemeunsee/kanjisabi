@@ -20,6 +20,9 @@ Powered by:
 - Running on the system:
   - A `X11` server, until someone passionate wants to port the UI logic to Wayland/Windows/whatever
   - A compositor, e.g. `picom`, to handle transparency; this should only be relevant to people running tiling windows managers such as `xmonad` or `i3`, full-fledged desktop environments like KDE or GNOME have their own compositor.
+  - A [Lindera server](https://github.com/lindera-morphology/lindera-server), using the dictionary matching the configuration of the Kanjisabi server (so far, using [features](morph_server/Cargo.toml)). The Lindera server can actually run remotely, its socket address can be provided:
+    - as argument when running the Kanjisabi server, see `cargo run --bin morph_server -- --help`
+    - with the `LINDERA_ADDR` environment variable when executing tests
 - Libraries installed on the system:
   - `sdl2` and `sdl2_ttf`
   - `leptonica` and `tesseract`

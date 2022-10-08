@@ -11,6 +11,10 @@ use proto::{
 use serde::{Deserialize, Serialize};
 use tonic::{transport::Server, Response, Status};
 
+// TODO select via argument, not via feature
+#[cfg(all(feature = "ipadic", feature = "unidic"))]
+compile_error!("feature \"ipadic\" and feature \"unidic\" cannot be enabled at the same time");
+
 #[cfg(feature = "ipadic")]
 const DICT_NAME: &str = "ipadic";
 
@@ -104,7 +108,7 @@ impl Api for JpnMorphAnalysisAPI {
 }
 
 impl JpnMorphAnalysisAPI {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         let lindera_addr = env::var("LINDERA_ADDR")
             .unwrap_or("0.0.0.0:3333".to_owned())
             .parse()
@@ -214,7 +218,6 @@ pub fn categorize(details: &Vec<String>) -> Option<proto::Category> {
     }
 }
 
-//TODO split into category and sub-category? +dict form morpheme
 #[cfg(feature = "unidic")]
 pub fn categorize(details: Vec<String>) -> Option<Morpheme> {
     if details.len() != 17 {
@@ -292,14 +295,17 @@ mod tests {
 
     #[tokio::test]
     async fn 降る_is_verb() {
-        let details = JpnMorphAnalysisAPI::new().morphemes("降る").await.unwrap();
+        let details = JpnMorphAnalysisAPI::default()
+            .morphemes("降る")
+            .await
+            .unwrap();
         assert_eq!(details.len(), 1);
         assert_eq!(details[0].category, proto::Category::Verb as i32);
     }
 
     #[tokio::test]
     async fn 降ります_is_verb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("降ります")
             .await
             .unwrap();
@@ -310,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn 降って_is_verb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("降って")
             .await
             .unwrap();
@@ -321,7 +327,7 @@ mod tests {
 
     #[tokio::test]
     async fn 降った_is_verb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("降った")
             .await
             .unwrap();
@@ -332,7 +338,7 @@ mod tests {
 
     #[tokio::test]
     async fn 降りました_is_verb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("降りました")
             .await
             .unwrap();
@@ -344,7 +350,7 @@ mod tests {
 
     #[tokio::test]
     async fn 降らない_is_verb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("降らない")
             .await
             .unwrap();
@@ -355,7 +361,7 @@ mod tests {
 
     #[tokio::test]
     async fn ために() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("ために")
             .await
             .unwrap();
@@ -366,14 +372,17 @@ mod tests {
 
     #[tokio::test]
     async fn ため() {
-        let details = JpnMorphAnalysisAPI::new().morphemes("ため").await.unwrap();
+        let details = JpnMorphAnalysisAPI::default()
+            .morphemes("ため")
+            .await
+            .unwrap();
         assert_eq!(details.len(), 1);
         assert_eq!(details[0].category, proto::Category::Noun as i32);
     }
 
     #[tokio::test]
     async fn たかくない() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("たかくない")
             .await
             .unwrap();
@@ -384,14 +393,17 @@ mod tests {
 
     #[tokio::test]
     async fn 大抵_is_adverb() {
-        let details = JpnMorphAnalysisAPI::new().morphemes("大抵").await.unwrap();
+        let details = JpnMorphAnalysisAPI::default()
+            .morphemes("大抵")
+            .await
+            .unwrap();
         assert_eq!(details.len(), 1);
         assert_eq!(details[0].category, proto::Category::Adverb as i32);
     }
 
     #[tokio::test]
     async fn あまり_is_adverb() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("あまり")
             .await
             .unwrap();
@@ -401,7 +413,7 @@ mod tests {
 
     #[tokio::test]
     async fn 簡単じゃありません() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("簡単じゃありません")
             .await
             .unwrap();
@@ -415,7 +427,7 @@ mod tests {
 
     #[tokio::test]
     async fn 簡単ではありません() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("簡単ではありません")
             .await
             .unwrap();
@@ -430,7 +442,7 @@ mod tests {
 
     #[tokio::test]
     async fn 簡単ではない() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("簡単ではない")
             .await
             .unwrap();
@@ -443,7 +455,7 @@ mod tests {
 
     #[tokio::test]
     async fn 簡単じゃない() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("簡単じゃない")
             .await
             .unwrap();
@@ -455,7 +467,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しくなかった() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しくなかった")
             .await
             .unwrap();
@@ -467,7 +479,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しくなくて() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しくなくて")
             .await
             .unwrap();
@@ -479,7 +491,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しくて() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しくて")
             .await
             .unwrap();
@@ -490,7 +502,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しく() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しく")
             .await
             .unwrap();
@@ -500,7 +512,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しかった() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しかった")
             .await
             .unwrap();
@@ -511,7 +523,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しくない() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しくない")
             .await
             .unwrap();
@@ -522,7 +534,7 @@ mod tests {
 
     #[tokio::test]
     async fn 難しい() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("難しい")
             .await
             .unwrap();
@@ -532,7 +544,7 @@ mod tests {
 
     #[tokio::test]
     async fn 新幹線() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("新幹線")
             .await
             .unwrap();
@@ -543,7 +555,7 @@ mod tests {
 
     #[tokio::test]
     async fn 重大な_is_keiyoudoushi() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("重大な")
             .await
             .unwrap();
@@ -554,14 +566,17 @@ mod tests {
 
     #[tokio::test]
     async fn 重大_is_keiyoudoushi() {
-        let details = JpnMorphAnalysisAPI::new().morphemes("重大").await.unwrap();
+        let details = JpnMorphAnalysisAPI::default()
+            .morphemes("重大")
+            .await
+            .unwrap();
         assert_eq!(details.len(), 1);
         assert_eq!(details[0].category, proto::Category::Keiyoudoushi as i32);
     }
 
     #[tokio::test]
     async fn きれいで() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("きれいで")
             .await
             .unwrap();
@@ -572,7 +587,7 @@ mod tests {
 
     #[tokio::test]
     async fn きれいに_is_keiyoudoushi() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("きれいに")
             .await
             .unwrap();
@@ -583,7 +598,7 @@ mod tests {
 
     #[tokio::test]
     async fn きれいな_is_keiyoudoushi() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("きれいな")
             .await
             .unwrap();
@@ -594,7 +609,7 @@ mod tests {
 
     #[tokio::test]
     async fn きれい_is_keiyoudoushi() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("きれい")
             .await
             .unwrap();
@@ -604,7 +619,7 @@ mod tests {
 
     #[tokio::test]
     async fn うちにいる() {
-        let details = JpnMorphAnalysisAPI::new()
+        let details = JpnMorphAnalysisAPI::default()
             .morphemes("うちにいる")
             .await
             .unwrap();

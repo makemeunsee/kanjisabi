@@ -4,5 +4,6 @@ members = [
     "morph_server",
     "proto",
     "tests",
+    # TODO reenable and fix UI
     # "ui",
 ]

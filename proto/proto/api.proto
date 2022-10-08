@@ -22,6 +22,7 @@ message Sentence {
   string sentence = 1;
 }
 
+// TODO split into category and sub-category?
 enum Category {
   NOUN = 0;
   PROPER_NOUN = 1;
