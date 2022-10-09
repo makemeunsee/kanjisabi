@@ -6,7 +6,7 @@ use anyhow::Result;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
-use kanjisabi::config::{load_config, watch_config, Config};
+use kanjisabi::config::{load_config, watch_config, KSConfig};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
 use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
@@ -29,7 +29,7 @@ fn same_content<T: std::cmp::PartialEq>(ts0: &[T], ts1: &[T]) -> bool {
     ts0.len() == ts1.len() && ts0.iter().all(|t| ts1.contains(t))
 }
 
-fn get_font_path(config: &Config) -> PathBuf {
+fn get_font_path(config: &KSConfig) -> PathBuf {
     let fc = Fontconfig::new().unwrap();
     let fonts = japanese_font_families_and_styles_flat(&fc);
     let first = &fonts
@@ -66,7 +66,7 @@ struct App {
     // program constants
     screen_w: u16,
     screen_h: u16,
-    config: Config,
+    config: KSConfig,
     // helpers
     sdl2_ttf_ctx: Sdl2TtfContext,
     ocr: JpnOCR,
@@ -87,7 +87,7 @@ impl App {
     fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {
         info!("Configuration changed, refreshing...");
         let old_contrast = self.config.preproc.contrast;
-        self.config = load_config();
+        self.config = load_config().unwrap_or_default();
         self.font_path = get_font_path(&self.config);
         if window_mapped {
             let new_contrast = self.config.preproc.contrast;
@@ -295,7 +295,7 @@ impl App {
     }
 
     fn run(self: &mut Self) -> Result<()> {
-        let (config_rx, config_watcher) = watch_config();
+        let (config_rx, _config_watcher) = watch_config()?;
 
         let twenty_millis = time::Duration::from_millis(20);
 
@@ -310,17 +310,11 @@ impl App {
         let mut selecting_area = false;
 
         loop {
-            if config_watcher.is_some() {
-                match config_rx.try_recv() {
-                    Ok(Ok(notify::Event {
-                        kind: notify::EventKind::Modify(notify::event::ModifyKind::Any),
-                        ..
-                    })) => {
-                        self.reload_config(window_mapped)?;
-                    }
-                    _ => {}
-                }
-            }
+            let _ = config_rx.try_recv().map(|_| {
+                // empty the event queue so only fresh events are received at the next loop iteration
+                while let Ok(_) = config_rx.try_recv() {}
+                let _ = self.reload_config(window_mapped);
+            });
 
             let pos = device_state.get_mouse().coords;
             let keys = device_state.get_keys();
@@ -418,7 +412,7 @@ impl App {
 fn main() -> Result<()> {
     env_logger::init();
 
-    let config = load_config();
+    let config = load_config().unwrap_or_default();
     debug!("{:?}", config);
 
     // TODO addr from config and/or rethink need for client/server/lindera_server arch

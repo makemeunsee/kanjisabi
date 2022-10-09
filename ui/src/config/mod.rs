@@ -1,65 +1,58 @@
 use std::{path::PathBuf, sync::mpsc::Receiver, time::Duration};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use config::File;
 use device_query::Keycode;
 use directories::BaseDirs;
 use log::warn;
-use notify::{Event, INotifyWatcher, RecommendedWatcher, Watcher};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{de::Error, Deserialize, Deserializer};
 use serde_with::{serde_as, DeserializeAs};
 
 const CONFIG_FILE: &str = "kanjisabi.toml";
 
-pub fn load_config() -> Config {
-    match config::Config::builder()
+pub fn load_config() -> Result<KSConfig> {
+    config::Config::builder()
         .add_source(File::from(config_path()))
         .build()
-    {
-        Ok(c) => match c.try_deserialize() {
-            Ok(config) => config,
-            Err(e) => {
-                warn!("Incompatible configuration: {:?}\nUsing default config", e);
-                Config::default()
-            }
-        },
-        Err(e) => {
-            warn!("Failed to load config file: {:?}\nUsing default config", e);
-            Config::default()
-        }
-    }
+        .map_err(|e| {
+            warn!("Failed to load config file: {:?}", e);
+            e
+        })?
+        .try_deserialize()
+        .map_err(|e| {
+            warn!("Incompatible configuration: {:?}", e);
+            anyhow!("Incompatible configuration: {:?}", e)
+        })
 }
 
-// TODO repair config hot loading, see https://github.com/notify-rs/notify/blob/main/examples/hot_reload_tide/src/main.rs
-pub fn watch_config() -> (
-    Receiver<Result<Event, notify::Error>>,
-    Option<INotifyWatcher>,
-) {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher: RecommendedWatcher = notify::Watcher::new(
-        tx,
-        notify::Config::default()
-            .with_poll_interval(Duration::from_secs(2))
-            .with_compare_contents(true),
-    )
-    .unwrap();
+pub fn watch_config() -> Result<(Receiver<()>, RecommendedWatcher)> {
+    let (config_tx, config_rx) = std::sync::mpsc::channel();
+    let mut config_watcher = RecommendedWatcher::new(
+        move |result: notify::Result<Event>| match result {
+            Ok(event) if event.paths.contains(&config_path()) && event.kind.is_modify() => {
+                let _ = config_tx.send(());
+            }
+            _ => {}
+        },
+        notify::Config::default().with_poll_interval(Duration::from_secs(2)),
+    )?;
+    config_watcher.watch(&config_dir_path(), RecursiveMode::Recursive)?;
+    Ok((config_rx, config_watcher))
+}
 
-    let watcher_opt = watcher
-        .watch(config_path().as_path(), notify::RecursiveMode::NonRecursive)
-        .map(|_| watcher)
-        .ok();
-
-    (rx, watcher_opt)
+fn config_dir_path() -> PathBuf {
+    BaseDirs::new().unwrap().config_dir().to_path_buf()
 }
 
 fn config_path() -> PathBuf {
-    let mut path = BaseDirs::new().unwrap().config_dir().to_path_buf();
+    let mut path = config_dir_path();
     path.push(CONFIG_FILE);
     path
 }
 
 #[derive(Deserialize, Debug, Default)]
-pub struct Config {
+pub struct KSConfig {
     #[serde(default = "Font::default")]
     pub font: Font,
     #[serde(default = "Colors::default")]
