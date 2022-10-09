@@ -17,6 +17,7 @@ jmdict = "2.0"
 log = "0.4"
 notify = "5.0"
 morph_client = { path = "../morph_client" }
+proto = { path = "../proto" }
 screenshot = { git = "https://github.com/makemeunsee/screenshot-rs" }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = "2.0"

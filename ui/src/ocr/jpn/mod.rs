@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::morph_client::BlockingClient;
-
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
 use jmdict::Entry;
 use log::info;
+
+use morph_client::BlockingClient;
 use proto::Sentence;
 
 pub struct JpnOCR {
@@ -17,7 +17,7 @@ pub struct JpnOCR {
 }
 
 #[derive(Debug)]
-pub struct Morpheme {
+pub struct VisualMorpheme {
     pub text: String,
     /// Same structure as `lindera::tokenizer::Token.detail` - present documentation is empirical
     /// if the original token is valid:
@@ -30,7 +30,7 @@ pub struct Morpheme {
 
 #[derive(Debug)]
 pub struct JpnText {
-    pub morphemes: Vec<Morpheme>,
+    pub morphemes: Vec<VisualMorpheme>,
     pub x: i32,
     pub y: i32,
     pub w: i32,
@@ -160,25 +160,24 @@ impl JpnOCR {
         y = (y as f32 / chars_in_seq as f32) as i32;
         h = (h as f32 / chars_in_seq as f32) as i32;
 
-        // let tokens = self.tokenizer.tokenize(&text).unwrap();
-        let tokens = self
+        let morphemes = self
             .client
             .analyze(Sentence {
                 sentence: text.clone(),
             })
             .unwrap()
             .into_inner()
-            .tokens;
+            .morphemes;
 
-        let chars_in_tokens = tokens
+        let chars_in_morphemes = morphemes
             .iter()
             .map(|t| t.text.chars().count() as u32)
             .sum::<u32>();
 
-        if chars_in_seq != chars_in_tokens {
+        if chars_in_seq != chars_in_morphemes {
             info!("Inconsistent morphological analysis results, discarding them");
             return JpnText {
-                morphemes: vec![Morpheme {
+                morphemes: vec![VisualMorpheme {
                     text: text.clone(),
                     detail: vec![],
                     bbox: Some((x, y, w, h)),
@@ -190,11 +189,11 @@ impl JpnOCR {
             };
         }
 
-        let mut morphemes = vec![];
+        let mut v_morphemes = vec![];
 
         let mut char_index = 0;
-        for token in tokens {
-            let len = token.text.chars().count();
+        for morpheme in morphemes {
+            let len = morpheme.text.chars().count();
             let mut x = std::i32::MAX;
             let mut y = std::i32::MAX;
             let mut w = 0;
@@ -209,14 +208,14 @@ impl JpnOCR {
             }
 
             let bbox = (x, y, w, h);
-            let morpheme = Morpheme {
-                text: token.text.to_owned(),
-                detail: vec![token.dict_form, token.part_of_speech.to_string()],
+            let v_morpheme = VisualMorpheme {
+                text: morpheme.text.to_owned(),
+                detail: vec![morpheme.dict_form, morpheme.category.to_string()],
                 bbox: Some(bbox),
             };
             char_index += len;
 
-            println!("morpheme: {}", morpheme.text);
+            println!("morpheme: {}", v_morpheme.text);
 
             // TODO restore
             // println!("{:?}", categorize(&token));
@@ -229,11 +228,11 @@ impl JpnOCR {
             //     }
             // }
 
-            morphemes.push(morpheme);
+            v_morphemes.push(v_morpheme);
         }
 
         JpnText {
-            morphemes,
+            morphemes: v_morphemes,
             x,
             y,
             w,

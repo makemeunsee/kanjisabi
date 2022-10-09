@@ -8,25 +8,21 @@ package proto;
 
 service Api {
   rpc Dictionary(Empty) returns (DictName) {}
-  
+
   rpc Analyze(Sentence) returns (Analysis) {}
 }
 
 message Empty {}
 
-message DictName {
-  string name = 1;
-}
+message DictName { string name = 1; }
 
-message Sentence {
-  string sentence = 1;
-}
+message Sentence { string sentence = 1; }
 
-// TODO split into category and sub-category?
+// TODO split into category, sub-category, form?
 enum Category {
   NOUN = 0;
   PROPER_NOUN = 1;
-  KEIYOUSHI = 2; // I-adj
+  KEIYOUSHI = 2;    // I-adj
   KEIYOUDOUSHI = 3; // NA-adj
   ADJECTIVE_NO = 4;
   ADVERB = 5;
@@ -45,13 +41,11 @@ enum Category {
   SIGN = 14;
   OTHER = 15;
 }
-  
+
 message Morpheme {
   string text = 1;
   string dict_form = 2;
   Category category = 3;
 }
 
-message Analysis {
-  repeated Morpheme morphemes = 1;
-}
+message Analysis { repeated Morpheme morphemes = 1; }

@@ -8,7 +8,6 @@ use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::config::{load_config, watch_config, Config};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
-use kanjisabi::morph_client::BlockingClient;
 use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
 use kanjisabi::overlay::sdl::print_to_new_pixels;
@@ -17,6 +16,7 @@ use kanjisabi::overlay::x11::{
     with_name, xfixes_init,
 };
 use log::{debug, info, trace, warn};
+use morph_client::BlockingClient;
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
@@ -312,7 +312,10 @@ impl App {
         loop {
             if config_watcher.is_some() {
                 match config_rx.try_recv() {
-                    Ok(notify::DebouncedEvent::Write(_)) => {
+                    Ok(Ok(notify::Event {
+                        kind: notify::EventKind::Modify(notify::event::ModifyKind::Any),
+                        ..
+                    })) => {
                         self.reload_config(window_mapped)?;
                     }
                     _ => {}
@@ -418,7 +421,8 @@ fn main() -> Result<()> {
     let config = load_config();
     debug!("{:?}", config);
 
-    let morph_client = BlockingClient::connect("http://[::1]:55555")?;
+    // TODO addr from config and/or rethink need for client/server/lindera_server arch
+    let morph_client = BlockingClient::connect("0.0.0.0:55555")?;
 
     let (conn, screen_num) = x11rb::connect(None)?;
     xfixes_init(&conn);

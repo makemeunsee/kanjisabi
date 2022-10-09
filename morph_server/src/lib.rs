@@ -137,9 +137,8 @@ impl JpnMorphAnalysisAPI {
             .text()
             .await
             .unwrap();
-        let tokens: Vec<LinderaToken> = serde_json::from_str(&response)?;
-        Ok(tokens
-            .iter()
+        Ok(serde_json::from_str::<Vec<LinderaToken>>(&response)?
+            .into_iter()
             .map(|token| token.detail.clone())
             .collect::<Vec<Vec<String>>>())
     }
@@ -217,6 +216,32 @@ pub fn categorize(details: &Vec<String>) -> Option<proto::Category> {
         _ => None,
     }
 }
+
+// 名詞: noun
+//   固有名詞: proper noun
+//   一般: universal
+//   接尾: suffix
+//   形容動詞語幹: quasi adjective (na)
+//   代名詞: pronoun
+// 助詞: particle
+//   格助詞: case marking particle
+//   接続助詞: conjunction particle
+//   係助詞: binding particle
+//   並立助詞: parallel marker
+// 動詞: verb
+//   自立: independent
+//   非自立: not independent
+// 助動詞: auxiliary verb
+// 形容詞: adjective
+// 副詞: adverb
+// 記号: sign
+//   句点: period
+//   読点: comma
+// 一段: ichidan
+// 五段: godan
+// 基本形: basic form
+// 仮定形: hypothetical/conditional form
+// 連用テ接続: adj continuous form (く)
 
 #[cfg(feature = "unidic")]
 pub fn categorize(details: Vec<String>) -> Option<Morpheme> {

@@ -5,7 +5,7 @@ use config::File;
 use device_query::Keycode;
 use directories::BaseDirs;
 use log::warn;
-use notify::{DebouncedEvent, INotifyWatcher, RecommendedWatcher, Watcher};
+use notify::{Event, INotifyWatcher, RecommendedWatcher, Watcher};
 use serde::{de::Error, Deserialize, Deserializer};
 use serde_with::{serde_as, DeserializeAs};
 
@@ -30,12 +30,22 @@ pub fn load_config() -> Config {
     }
 }
 
-pub fn watch_config() -> (Receiver<DebouncedEvent>, Option<INotifyWatcher>) {
+// TODO repair config hot loading, see https://github.com/notify-rs/notify/blob/main/examples/hot_reload_tide/src/main.rs
+pub fn watch_config() -> (
+    Receiver<Result<Event, notify::Error>>,
+    Option<INotifyWatcher>,
+) {
     let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher: RecommendedWatcher = notify::Watcher::new(tx, Duration::from_secs(2)).unwrap();
+    let mut watcher: RecommendedWatcher = notify::Watcher::new(
+        tx,
+        notify::Config::default()
+            .with_poll_interval(Duration::from_secs(2))
+            .with_compare_contents(true),
+    )
+    .unwrap();
 
     let watcher_opt = watcher
-        .watch(config_path(), notify::RecursiveMode::NonRecursive)
+        .watch(config_path().as_path(), notify::RecursiveMode::NonRecursive)
         .map(|_| watcher)
         .ok();
 
