@@ -99,7 +99,6 @@ where
         .unwrap()
 }
 
-// TODO: duck type those? https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=ab7c2d43caffe830e8d71923dbde4061
 fn print_to_window_canvas(source: &Surface, dest: &mut Canvas<Window>) {
     let creator = dest.texture_creator();
     let texture = source.as_texture(&creator).unwrap();

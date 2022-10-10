@@ -97,7 +97,6 @@ impl JpnMorphAnalysisAPI {
             .collect())
     }
 
-    // TODO README
     async fn lindera_tokens(&self, text: &str) -> Result<Vec<Vec<String>>> {
         let client = reqwest::Client::new();
         let response = client

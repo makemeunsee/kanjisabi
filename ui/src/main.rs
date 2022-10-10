@@ -410,7 +410,7 @@ fn main() -> Result<()> {
     let config = load_config().unwrap_or_default();
     debug!("{:?}", config);
 
-    // TODO addr from config
+    // TODO addr from config + described in README
     let morph_api = JpnMorphAnalysisAPI::with_lindera_address("0.0.0.0:3333")?;
 
     let (conn, screen_num) = x11rb::connect(None)?;
