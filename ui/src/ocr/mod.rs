@@ -23,7 +23,7 @@ pub struct OCR {
 
 impl OCR {
     pub fn recognize_words(
-        self: &Self,
+        &self,
         frame_data: &[u8],
         width: i32,
         height: i32,
@@ -39,13 +39,13 @@ impl OCR {
 
         Ok(tsv
             .lines()
-            .filter(|l| l.starts_with("5"))
+            .filter(|l| l.starts_with('5'))
             .filter_map(|l| self.maybe_word(l).ok())
             .collect())
     }
 
-    fn maybe_word(self: &Self, s: &str) -> Result<OCRWord> {
-        let tokens: Vec<String> = s.split_terminator("\t").map(String::from).collect();
+    fn maybe_word(&self, s: &str) -> Result<OCRWord> {
+        let tokens: Vec<String> = s.split_terminator('\t').map(String::from).collect();
         if tokens.len() < 12 {
             return Err(anyhow!(
                 "unable to parse tsv result from Tesseract: {:?}",

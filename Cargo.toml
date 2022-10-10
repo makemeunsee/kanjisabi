@@ -1,2 +1,2 @@
 [workspace]
-members = ["morph_client", "morph_server", "proto", "tests", "ui"]
+members = ["morph", "ui"]

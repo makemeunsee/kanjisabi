@@ -14,7 +14,7 @@ fn main() -> Result<()> {
 
     let screen = &conn.setup().roots[screen_num];
 
-    let win_id = create_overlay_window(&conn, &screen, 50, 50, 200, 200)?;
+    let win_id = create_overlay_window(&conn, screen, 50, 50, 200, 200)?;
     println!("{}", win_id);
 
     with_name(&conn, win_id, "X11 Rust overlay")?;
@@ -37,10 +37,8 @@ fn main() -> Result<()> {
     loop {
         if let Some(event) = conn.poll_for_event().unwrap() {
             println!("Event: {:?}", event);
-        } else {
-            if i == 0 {
-                raise_if_not_top(&conn, screen.root, win_id)?;
-            }
+        } else if i == 0 {
+            raise_if_not_top(&conn, screen.root, win_id)?;
         }
 
         i = (i + 1) % STACK_CHECK_DELAY;

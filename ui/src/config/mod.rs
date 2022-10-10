@@ -150,11 +150,9 @@ impl<'de> DeserializeAs<'de, Keycode> for LocalKeycode {
     where
         D: Deserializer<'de>,
     {
-        match String::deserialize(deserializer)? {
-            s => s
-                .parse::<Keycode>()
-                .map_err(|e| D::Error::custom(format!("{} on \"{}\"", e, s))),
-        }
+        let s = String::deserialize(deserializer)?;
+        s.parse::<Keycode>()
+            .map_err(|e| D::Error::custom(format!("{} on \"{}\"", e, s)))
     }
 }
 // keys

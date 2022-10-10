@@ -193,7 +193,7 @@ where
     Conn: Connection,
 {
     let depths = &screen.allowed_depths;
-    let visuals = &depths.into_iter().find(|&d| d.depth == 32).unwrap().visuals;
+    let visuals = &depths.iter().find(|&d| d.depth == 32).unwrap().visuals;
 
     let cw = ColormapWrapper::create_colormap(
         conn,
@@ -220,7 +220,7 @@ where
             .colormap(Some(cw.into_colormap()))
             .override_redirect(Some(1))
             .border_pixel(Some(1))
-            .event_mask(0b1_11111111_11111111_11111111),
+            .event_mask(0b1_1111_1111_1111_1111_1111_1111),
     )?;
 
     input_passthrough(conn, win_id)?;

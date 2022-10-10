@@ -44,7 +44,7 @@ pub fn main() -> Result<()> {
             let x = mouse_pos.0;
             let y = std::cmp::max(0, mouse_pos.1 - capture_h);
             let w = capture_w;
-            let h = std::cmp::min(capture_h, std::cmp::max(1, mouse_pos.1));
+            let h = mouse_pos.1.clamp(1, capture_h);
             let ocr_area = get_screenshot_area(0, x as u32, y as u32, w as u32, h as u32).unwrap();
 
             println!("running OCR...");
@@ -58,7 +58,7 @@ pub fn main() -> Result<()> {
                     ocr_area.pixel_width() as i32,
                     ocr_area.pixel_width() as i32 * ocr_area.width() as i32,
                 )
-                .unwrap_or(vec![])
+                .unwrap_or_default()
             );
         }
         std::thread::sleep(twenty_millis);

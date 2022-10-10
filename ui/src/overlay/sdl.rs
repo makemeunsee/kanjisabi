@@ -15,6 +15,12 @@ pub struct Overlay {
     pub video_subsystem: VideoSubsystem,
 }
 
+impl Default for Overlay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Overlay {
     pub fn new() -> Overlay {
         let sdl_context = sdl2::init().unwrap();
@@ -22,11 +28,11 @@ impl Overlay {
         Overlay { video_subsystem }
     }
 
-    pub fn current_driver(self: &Self) -> &str {
+    pub fn current_driver(&self) -> &str {
         self.video_subsystem.current_video_driver()
     }
 
-    pub fn video_bounds(self: &Self) -> (i32, i32) {
+    pub fn video_bounds(&self) -> (i32, i32) {
         self.video_subsystem
             .display_usable_bounds(0)
             .unwrap()
@@ -35,7 +41,7 @@ impl Overlay {
     }
 
     pub fn new_overlay_canvas(
-        self: &Self,
+        &self,
         x: i32,
         y: i32,
         w: u32,
@@ -67,7 +73,7 @@ impl Overlay {
     }
 }
 
-fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
+pub fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
     sdl2::pixels::Color::RGBA(
         (argb >> 16) as u8,
         (argb >> 8) as u8,
@@ -76,7 +82,7 @@ fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
     )
 }
 
-fn render_text<'a, P>(
+pub fn render_text<'a, P>(
     ctx: &'a Sdl2TtfContext,
     text: &str,
     font_path: P,
@@ -108,7 +114,7 @@ fn print_to_surface_canvas(source: &Surface, dest: &mut Canvas<Surface>, dest_re
     dest.copy(&texture, None, dest_rect).unwrap();
 }
 
-fn print_to_pixels<'a>(
+pub fn print_to_pixels(
     source: &Surface,
     data: &mut [u8],
     width: u32,
@@ -167,7 +173,7 @@ where
         text.height(),
     ));
 
-    let mut data = vec![0 as u8; width as usize * height as usize * 4];
+    let mut data = vec![0_u8; width as usize * height as usize * 4];
     print_to_pixels(
         &text,
         &mut data,
@@ -178,37 +184,6 @@ where
     );
 
     (data, width, height)
-}
-
-pub fn print_to_existing_pixels<P>(
-    ctx: &Sdl2TtfContext,
-    text: &str,
-    font_path: &P,
-    color_fg: u32,
-    color_bg: u32,
-    point_size: u16,
-    data: &mut [u8],
-    width: u32,
-    height: u32,
-) where
-    P: AsRef<Path>,
-{
-    let text = render_text(
-        ctx,
-        text,
-        font_path,
-        argb_to_sdl_color(color_fg),
-        point_size,
-    );
-
-    print_to_pixels(
-        &text,
-        data,
-        width,
-        height,
-        argb_to_sdl_color(color_bg),
-        None,
-    );
 }
 
 pub fn print_to_canvas_and_resize<P>(

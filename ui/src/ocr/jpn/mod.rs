@@ -5,15 +5,15 @@ use super::{OCRWord, OCR};
 use anyhow::Result;
 use jmdict::Entry;
 use log::info;
-
-use morph_client::BlockingClient;
-use proto::Sentence;
+use morph::JpnMorphAnalysisAPI;
+use tokio::runtime::{Builder, Runtime};
 
 pub struct JpnOCR {
     ocr: OCR,
     threshold: f32,
     discriminator: fn(&str) -> bool,
-    client: BlockingClient,
+    morph_api: JpnMorphAnalysisAPI,
+    rt: Runtime,
 }
 
 #[derive(Debug)]
@@ -38,36 +38,36 @@ pub struct JpnText {
 }
 
 fn is_kanji(c: char) -> bool {
-    (c >= '\u{4e00}' && c <= '\u{9ffc}')          // https://www.unicode.org/charts/PDF/U4E00.pdf
-        || (c >= '\u{f900}' && c <= '\u{faff}')   // https://www.unicode.org/charts/PDF/UF900.pdf
-        || (c >= '\u{3400}' && c <= '\u{4dbf}')   // https://www.unicode.org/charts/PDF/U3400.pdf
-        || (c >= '\u{20000}' && c <= '\u{2a6dd}') // https://www.unicode.org/charts/PDF/U3400.pdf
-        || (c >= '\u{2a700}' && c <= '\u{2b734}') // https://www.unicode.org/charts/PDF/U2A700.pdf
-        || (c >= '\u{2b740}' && c <= '\u{2b81d}') // https://www.unicode.org/charts/PDF/U2B740.pdf
-        || (c >= '\u{2b820}' && c <= '\u{2cea1}') // https://www.unicode.org/charts/PDF/U2B820.pdf
-        || (c >= '\u{2ceb0}' && c <= '\u{2ebe0}') // https://www.unicode.org/charts/PDF/U2CEB0.pdf
-        || (c >= '\u{2f800}' && c <= '\u{2fa1d}') // https://www.unicode.org/charts/PDF/U2F800.pdf
-        || (c >= '\u{30000}' && c <= '\u{3134a}') // https://www.unicode.org/charts/PDF/U30000.pdf
+    ('\u{4e00}'..='\u{9ffc}').contains(&c)         // https://www.unicode.org/charts/PDF/U4E00.pdf
+        || ('\u{f900}'..='\u{faff}').contains(&c)  // https://www.unicode.org/charts/PDF/UF900.pdf
+        || ('\u{3400}'..='\u{4dbf}').contains(&c)  // https://www.unicode.org/charts/PDF/U3400.pdf
+        || ('\u{20000}'..='\u{2a6dd}').contains(&c)// https://www.unicode.org/charts/PDF/U3400.pdf
+        || ('\u{2a700}'..='\u{2b734}').contains(&c)// https://www.unicode.org/charts/PDF/U2A700.pdf
+        || ('\u{2b740}'..='\u{2b81d}').contains(&c)// https://www.unicode.org/charts/PDF/U2B740.pdf
+        || ('\u{2b820}'..='\u{2cea1}').contains(&c)// https://www.unicode.org/charts/PDF/U2B820.pdf
+        || ('\u{2ceb0}'..='\u{2ebe0}').contains(&c)// https://www.unicode.org/charts/PDF/U2CEB0.pdf
+        || ('\u{2f800}'..='\u{2fa1d}').contains(&c)// https://www.unicode.org/charts/PDF/U2F800.pdf
+        || ('\u{30000}'..='\u{3134a}').contains(&c)// https://www.unicode.org/charts/PDF/U30000.pdf
         || c == '\u{3005}' // 々 - https://www.unicode.org/charts/PDF/U3000.pdf
 }
 
 fn is_hiragana(c: char) -> bool {
-    c >= '\u{3041}' && c <= '\u{3096}'          // https://www.unicode.org/charts/PDF/U3040.pdf
-        || c == '\u{1b001}'                     // https://www.unicode.org/charts/PDF/U1B000.pdf
-        || c == '\u{1b11f}'                     // https://www.unicode.org/charts/PDF/U1B100.pdf
-        || c >= '\u{1b150}' && c <= '\u{1b152}' // https://www.unicode.org/charts/PDF/U1B130.pdf
+    ('\u{3041}'..='\u{3096}').contains(&c)          // https://www.unicode.org/charts/PDF/U3040.pdf
+        || c == '\u{1b001}'                              // https://www.unicode.org/charts/PDF/U1B000.pdf
+        || c == '\u{1b11f}'                              // https://www.unicode.org/charts/PDF/U1B100.pdf
+        || ('\u{1b150}'..='\u{1b152}').contains(&c) // https://www.unicode.org/charts/PDF/U1B130.pdf
 }
 
 fn is_katakana(c: char) -> bool {
-    c >= '\u{30a1}' && c <= '\u{30fa}' || c == '\u{30fc}' // https://www.unicode.org/charts/PDF/U30A0.pdf
-        || c >= '\u{31f0}' && c <= '\u{31ff}'   // https://www.unicode.org/charts/PDF/U31F0.pdf
-        || c >= '\u{ff66}' && c<= '\u{ff9d}'    // https://www.unicode.org/charts/PDF/UFF00.pdf
-        || c == '\u{1b000}'                     // https://www.unicode.org/charts/PDF/U1B000.pdf
-        || c >= '\u{1b164}' && c <= '\u{1b167}' // https://www.unicode.org/charts/PDF/U1B130.pdf
+    ('\u{30a1}'..='\u{30fa}').contains(&c)|| c == '\u{30fc}' // https://www.unicode.org/charts/PDF/U30A0.pdf
+        || ('\u{31f0}'..='\u{31ff}').contains(&c)            // https://www.unicode.org/charts/PDF/U31F0.pdf
+        || ('\u{ff66}'..='\u{ff9d}').contains(&c)            // https://www.unicode.org/charts/PDF/UFF00.pdf
+        || c == '\u{1b000}'                                       // https://www.unicode.org/charts/PDF/U1B000.pdf
+        || ('\u{1b164}'..='\u{1b167}').contains(&c) // https://www.unicode.org/charts/PDF/U1B130.pdf
 }
 
 impl JpnOCR {
-    pub fn new(client: BlockingClient) -> JpnOCR {
+    pub fn new(morph_api: JpnMorphAnalysisAPI) -> JpnOCR {
         JpnOCR {
             // TODO try to support 'jpn_vert' too; initial tries gave very bad results
             ocr: OCR {
@@ -79,12 +79,13 @@ impl JpnOCR {
                 s.chars()
                     .all(|c| is_kanji(c) || is_katakana(c) || is_hiragana(c))
             },
-            client,
+            morph_api,
+            rt: Builder::new_multi_thread().enable_all().build().unwrap(),
         }
     }
 
     pub fn recognize(
-        self: &mut Self,
+        &mut self,
         frame_data: &[u8],
         width: i32,
         height: i32,
@@ -94,12 +95,12 @@ impl JpnOCR {
         let ocr_words =
             self.ocr
                 .recognize_words(frame_data, width, height, bytes_per_pixel, bytes_per_line)?;
-        Ok(self.from_ocr_words(&ocr_words))
+        Ok(self.ocr_words_to_text(&ocr_words))
     }
 
-    fn from_ocr_words(self: &mut Self, words: &Vec<OCRWord>) -> Vec<JpnText> {
+    fn ocr_words_to_text(&mut self, words: &[OCRWord]) -> Vec<JpnText> {
         words
-            .into_iter()
+            .iter()
             .fold(
                 BTreeMap::new(),
                 |mut acc: BTreeMap<(u32, u32, u32, u32), Vec<&OCRWord>>, word| {
@@ -108,12 +109,12 @@ impl JpnOCR {
                 },
             )
             .values_mut()
-            .flat_map(|line| self.from_line(line))
+            .flat_map(|line| self.line_to_text(line))
             .collect()
     }
 
     /// digest OCR'd Japanese characters belonging to the same OCR 'line' into tentative words
-    fn from_line(self: &mut Self, line: &Vec<&OCRWord>) -> Vec<JpnText> {
+    fn line_to_text(&mut self, line: &[&OCRWord]) -> Vec<JpnText> {
         let threshold = self.threshold;
         let discriminator = self.discriminator;
         let is_valid_jpn = |w: &&OCRWord| w.conf <= threshold || !(discriminator)(&w.text);
@@ -121,13 +122,13 @@ impl JpnOCR {
             if seq.is_empty() {
                 None
             } else {
-                Some(self.from_word_seq(seq))
+                Some(self.word_seq_to_text(seq))
             }
         };
         line.split(is_valid_jpn).filter_map(to_jpn).collect()
     }
 
-    fn from_word_seq(self: &mut Self, seq: &[&OCRWord]) -> JpnText {
+    fn word_seq_to_text(&mut self, seq: &[&OCRWord]) -> JpnText {
         let chars_in_seq = seq
             .iter()
             .map(|t| t.text.chars().count() as u32)
@@ -137,7 +138,7 @@ impl JpnOCR {
         let mut y = 0;
         let mut w = 0;
         let mut h = 0;
-        let mut text = "".to_string();
+        let mut text = "".to_owned();
 
         // for each character in all words of the sequence, assign it a bounding box if it's the first character of its word
         // later used for assigning bounding boxes to morphemes
@@ -161,17 +162,13 @@ impl JpnOCR {
         h = (h as f32 / chars_in_seq as f32) as i32;
 
         let morphemes = self
-            .client
-            .analyze(Sentence {
-                sentence: text.clone(),
-            })
-            .unwrap()
-            .into_inner()
-            .morphemes;
+            .rt
+            .block_on(self.morph_api.morphemes(&text))
+            .unwrap_or_default();
 
         let chars_in_morphemes = morphemes
             .iter()
-            .map(|t| t.text.chars().count() as u32)
+            .map(|t| t.text().chars().count() as u32)
             .sum::<u32>();
 
         if chars_in_seq != chars_in_morphemes {
@@ -192,8 +189,8 @@ impl JpnOCR {
         let mut v_morphemes = vec![];
 
         let mut char_index = 0;
-        for morpheme in morphemes {
-            let len = morpheme.text.chars().count();
+        for morpheme in &morphemes {
+            let len = morpheme.text().chars().count();
             let mut x = std::i32::MAX;
             let mut y = std::i32::MAX;
             let mut w = 0;
@@ -209,8 +206,11 @@ impl JpnOCR {
 
             let bbox = (x, y, w, h);
             let v_morpheme = VisualMorpheme {
-                text: morpheme.text.to_owned(),
-                detail: vec![morpheme.dict_form, morpheme.category.to_string()],
+                text: morpheme.text().to_owned(),
+                detail: vec![
+                    morpheme.dict_form().to_owned(),
+                    morpheme.category().to_string(),
+                ],
                 bbox: Some(bbox),
             };
             char_index += len;
@@ -245,10 +245,13 @@ pub fn print_jmdict_results(text: &str) {
     println!("->");
     match jmdict::entries().find(|e| e.kanji_elements().any(|k| k.text == text)) {
         Some(entry) => print_entry(&entry),
-        None => match jmdict::entries().find(|e| e.reading_elements().any(|k| k.text == text)) {
-            Some(entry) => print_entry(&entry),
-            None => (),
-        },
+        None => {
+            if let Some(entry) =
+                jmdict::entries().find(|e| e.reading_elements().any(|k| k.text == text))
+            {
+                print_entry(&entry)
+            }
+        }
     }
 
     fn print_entry(entry: &Entry) {

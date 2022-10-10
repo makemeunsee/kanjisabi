@@ -41,7 +41,7 @@ pub fn main() -> Result<()> {
 
     let mut i = 0;
     loop {
-        i = i + 1;
+        i += 1;
 
         white_thin
             .window_mut()

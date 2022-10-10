@@ -16,7 +16,7 @@ use kanjisabi::overlay::x11::{
     with_name, xfixes_init,
 };
 use log::{debug, info, trace, warn};
-use morph_client::BlockingClient;
+use morph::JpnMorphAnalysisAPI;
 use screenshot::get_screenshot_area;
 use sdl2::ttf::Sdl2TtfContext;
 use std::path::PathBuf;
@@ -45,20 +45,20 @@ fn get_font_path(config: &KSConfig) -> PathBuf {
     };
 
     if let Some(family) = &config.font.family {
-        if None == fonts.iter().position(|f| f.0 == family.as_str()) {
+        if !fonts.iter().any(|f| f.0 == family.as_str()) {
             warn!(
                 "Requested font ({}) is not available; available Japanese fonts:",
                 family
             );
             print_fonts();
-            path_to_font(&fc, &first, None).unwrap()
+            path_to_font(&fc, first, None).unwrap()
         } else {
             path_to_font(&fc, family.as_str(), config.font.style.as_deref()).unwrap()
         }
     } else {
         warn!("No font specified; available Japanese fonts:");
         print_fonts();
-        path_to_font(&fc, &first, None).unwrap()
+        path_to_font(&fc, first, None).unwrap()
     }
 }
 
@@ -84,7 +84,7 @@ struct App {
 }
 
 impl App {
-    fn reload_config(self: &mut Self, window_mapped: bool) -> Result<()> {
+    fn reload_config(&mut self, window_mapped: bool) -> Result<()> {
         info!("Configuration changed, refreshing...");
         let old_contrast = self.config.preproc.contrast;
         self.config = load_config().unwrap_or_default();
@@ -103,7 +103,7 @@ impl App {
         Ok(())
     }
 
-    fn clear_overlay(self: &Self) -> Result<()> {
+    fn clear_overlay(&self) -> Result<()> {
         draw_a_rectangle(
             &self.conn,
             self.window,
@@ -119,14 +119,14 @@ impl App {
         Ok(())
     }
 
-    fn reset_ocr(self: &mut Self) -> Result<()> {
+    fn reset_ocr(&mut self) -> Result<()> {
         self.ocr_results.clear();
         self.result_index = 0;
         self.clear_overlay()?;
         Ok(())
     }
 
-    fn redraw_all(self: &Self) -> Result<()> {
+    fn redraw_all(&self) -> Result<()> {
         self.clear_overlay()?;
         self.draw_capture_area()?;
         self.draw_highlights()?;
@@ -134,11 +134,11 @@ impl App {
         Ok(())
     }
 
-    fn draw_capture_area(self: &Self) -> Result<()> {
+    fn draw_capture_area(&self) -> Result<()> {
         let x = std::cmp::min(self.capture_x0, self.capture_x1) as i16;
         let y = std::cmp::min(self.capture_y0, self.capture_y1) as i16;
-        let w = (self.capture_x0 - self.capture_x1).abs() as u16;
-        let h = (self.capture_y0 - self.capture_y1).abs() as u16;
+        let w = (self.capture_x0 - self.capture_x1).unsigned_abs() as u16;
+        let h = (self.capture_y0 - self.capture_y1).unsigned_abs() as u16;
         draw_a_rectangle(
             &self.conn,
             self.window,
@@ -154,7 +154,7 @@ impl App {
         Ok(())
     }
 
-    fn draw_highlight(self: &Self, jpn_text: &JpnText, x0: i16, y0: i16) -> Result<()> {
+    fn draw_highlight(&self, jpn_text: &JpnText, x0: i16, y0: i16) -> Result<()> {
         draw_a_rectangle(
             &self.conn,
             self.window,
@@ -168,7 +168,7 @@ impl App {
         Ok(())
     }
 
-    fn draw_highlights(self: &Self) -> Result<()> {
+    fn draw_highlights(&self) -> Result<()> {
         let x0 = std::cmp::min(self.capture_x0, self.capture_x1) as i16;
         let y0 = std::cmp::min(self.capture_y0, self.capture_y1) as i16;
 
@@ -181,7 +181,7 @@ impl App {
         Ok(())
     }
 
-    fn draw_ocr_result(self: &Self, jpn_text: &JpnText, x0: i32, y0: i32) -> Result<()> {
+    fn draw_ocr_result(&self, jpn_text: &JpnText, x0: i32, y0: i32) -> Result<()> {
         // TODO introduce min/max font sizes from config
         let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
         let scaled_size = font_size * self.font_scale as f32 / 100.;
@@ -214,26 +214,23 @@ impl App {
         Ok(())
     }
 
-    fn draw_hint(self: &Self) -> Result<()> {
-        match self.ocr_results.get(self.result_index) {
-            Some(jpn_text) => {
-                let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
-                let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
+    fn draw_hint(&self) -> Result<()> {
+        if let Some(jpn_text) = self.ocr_results.get(self.result_index) {
+            let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
+            let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
 
-                self.draw_ocr_result(jpn_text, x0, y0)?;
+            self.draw_ocr_result(jpn_text, x0, y0)?;
 
-                self.conn.flush()?;
-            }
-            None => (),
+            self.conn.flush()?;
         }
         Ok(())
     }
 
-    fn perform_ocr(self: &mut Self) -> Result<()> {
+    fn perform_ocr(&mut self) -> Result<()> {
         let x = std::cmp::min(self.capture_x0, self.capture_x1) as u32;
         let y = std::cmp::min(self.capture_y0, self.capture_y1) as u32;
-        let w = (self.capture_x0 - self.capture_x1).abs() as u32;
-        let h = (self.capture_y0 - self.capture_y1).abs() as u32;
+        let w = (self.capture_x0 - self.capture_x1).unsigned_abs();
+        let h = (self.capture_y0 - self.capture_y1).unsigned_abs();
 
         let ocr_area = get_screenshot_area(0, x, y, w, h).unwrap();
 
@@ -263,7 +260,7 @@ impl App {
                 ocr_area.pixel_width() as i32,
                 ocr_area.pixel_width() as i32 * ocr_area.width() as i32,
             )
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
 
         self.draw_highlights()?;
 
@@ -274,27 +271,27 @@ impl App {
         Ok(())
     }
 
-    fn trigger(self: &Self, keys: &Vec<Keycode>) -> bool {
+    fn trigger(&self, keys: &[Keycode]) -> bool {
         same_content(keys, &self.config.keys.trigger)
     }
 
-    fn quit(self: &Self, keys: &Vec<Keycode>) -> bool {
+    fn quit(&self, keys: &[Keycode]) -> bool {
         same_content(keys, &self.config.keys.quit)
     }
 
-    fn font_up(self: &Self, keys: &Vec<Keycode>) -> bool {
+    fn font_up(&self, keys: &[Keycode]) -> bool {
         same_content(keys, &self.config.keys.font_up)
     }
 
-    fn font_down(self: &Self, keys: &Vec<Keycode>) -> bool {
+    fn font_down(&self, keys: &[Keycode]) -> bool {
         same_content(keys, &self.config.keys.font_down)
     }
 
-    fn next_hint(self: &Self, keys: &Vec<Keycode>) -> bool {
+    fn next_hint(&self, keys: &[Keycode]) -> bool {
         same_content(keys, &self.config.keys.next_hint)
     }
 
-    fn run(self: &mut Self) -> Result<()> {
+    fn run(&mut self) -> Result<()> {
         let (config_rx, _config_watcher) = watch_config()?;
 
         let twenty_millis = time::Duration::from_millis(20);
@@ -312,7 +309,7 @@ impl App {
         loop {
             let _ = config_rx.try_recv().map(|_| {
                 // empty the event queue so only fresh events are received at the next loop iteration
-                while let Ok(_) = config_rx.try_recv() {}
+                while config_rx.try_recv().is_ok() {}
                 let _ = self.reload_config(window_mapped);
             });
 
@@ -327,7 +324,7 @@ impl App {
             if self.font_up(&keys) {
                 if window_mapped && !increased {
                     increased = true;
-                    let new_font_scale = (self.font_scale + 25).max(50).min(200);
+                    let new_font_scale = (self.font_scale + 25).clamp(50, 200);
                     if new_font_scale != self.font_scale {
                         self.font_scale = new_font_scale;
                         self.redraw_all()?;
@@ -340,7 +337,7 @@ impl App {
             if self.font_down(&keys) {
                 if window_mapped && !decreased {
                     decreased = true;
-                    let new_font_scale = (self.font_scale - 25).max(50).min(200);
+                    let new_font_scale = (self.font_scale - 25).clamp(50, 200);
                     if new_font_scale != self.font_scale {
                         self.font_scale = new_font_scale;
                         self.redraw_all()?;
@@ -352,7 +349,7 @@ impl App {
 
             if self.next_hint(&keys) {
                 debug!("next hint requested");
-                if self.ocr_results.len() > 0 && !next_hint_requested {
+                if !self.ocr_results.is_empty() && !next_hint_requested {
                     self.result_index = (self.result_index + 1) % self.ocr_results.len();
                     self.redraw_all()?;
                 }
@@ -388,15 +385,13 @@ impl App {
                         window_mapped = false;
                     }
                 }
-            } else {
-                if selecting_area {
-                    debug!("stopping capture area selection");
-                    selecting_area = false;
-                    // TODO visual hint of OCR in progress?
-                    if self.capture_x0 != self.capture_x1 && self.capture_y0 != self.capture_y1 {
-                        debug!("performing OCR");
-                        self.perform_ocr()?;
-                    }
+            } else if selecting_area {
+                debug!("stopping capture area selection");
+                selecting_area = false;
+                // TODO visual hint of OCR in progress?
+                if self.capture_x0 != self.capture_x1 && self.capture_y0 != self.capture_y1 {
+                    debug!("performing OCR");
+                    self.perform_ocr()?;
                 }
             }
 
@@ -415,8 +410,8 @@ fn main() -> Result<()> {
     let config = load_config().unwrap_or_default();
     debug!("{:?}", config);
 
-    // TODO addr from config and/or rethink need for client/server/lindera_server arch
-    let morph_client = BlockingClient::connect("0.0.0.0:55555")?;
+    // TODO addr from config
+    let morph_api = JpnMorphAnalysisAPI::with_lindera_address("0.0.0.0:3333")?;
 
     let (conn, screen_num) = x11rb::connect(None)?;
     xfixes_init(&conn);
@@ -424,7 +419,7 @@ fn main() -> Result<()> {
     let screen_w = screen.width_in_pixels;
     let screen_h = screen.height_in_pixels;
 
-    let window = create_overlay_fullscreen_window(&conn, &screen)?;
+    let window = create_overlay_fullscreen_window(&conn, screen)?;
     with_name(&conn, window, "kanjisabi")?;
 
     let mut app = App {
@@ -434,7 +429,7 @@ fn main() -> Result<()> {
         config,
         screen_w,
         screen_h,
-        ocr: JpnOCR::new(morph_client),
+        ocr: JpnOCR::new(morph_api),
         window,
         capture_x0: 0,
         capture_y0: 0,

@@ -11,7 +11,7 @@ pub fn path_to_font(fc: &Fontconfig, family: &str, style: Option<&str>) -> Optio
 }
 
 pub fn japanese_font_families_and_styles(fc: &Fontconfig) -> BTreeMap<String, HashSet<String>> {
-    fontconfig::list_fonts(&Pattern::new(&fc), None)
+    fontconfig::list_fonts(&Pattern::new(fc), None)
         .iter()
         .filter(|p| p.lang_set().unwrap().any(|s| s == "ja"))
         .fold(
@@ -36,7 +36,7 @@ pub fn japanese_font_families_and_styles_flat(fc: &Fontconfig) -> Vec<(String, S
         .into_iter()
         .flat_map(|e| {
             e.1.into_iter()
-                .map(|style| (e.0.clone(), style.clone()))
+                .map(|style| (e.0.clone(), style))
                 .collect::<Vec<_>>()
         })
         .collect()

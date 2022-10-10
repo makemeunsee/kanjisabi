@@ -3,7 +3,6 @@ use std::rc::Rc;
 use qt_widgets::qt_core::qs;
 use qt_widgets::qt_core::FocusPolicy;
 use qt_widgets::qt_core::QBox;
-use qt_widgets::qt_core::QFlags;
 use qt_widgets::qt_core::WidgetAttribute;
 use qt_widgets::qt_core::WindowType;
 use qt_widgets::QLabel;
@@ -36,11 +35,11 @@ impl Overlay {
             .set_attribute_1a(WidgetAttribute::WATransparentForMouseEvents);
         self.overlay
             .set_attribute_1a(WidgetAttribute::WANoMousePropagation);
-        self.overlay.set_window_flags(QFlags::from(
+        self.overlay.set_window_flags(
             WindowType::FramelessWindowHint
                 | WindowType::X11BypassWindowManagerHint
                 | WindowType::WindowStaysOnTopHint,
-        ));
+        );
 
         self.overlay.set_style_sheet(&qs(
             ".QWidget{background-color:rgba(255,0,0,20);border: 1px solid red;}",

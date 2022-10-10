@@ -2,7 +2,9 @@ use std::time::Duration;
 
 use anyhow::Result;
 use fontconfig::Fontconfig;
-use kanjisabi::overlay::sdl::{print_to_existing_pixels, print_to_new_pixels};
+use kanjisabi::overlay::sdl::{
+    argb_to_sdl_color, print_to_new_pixels, print_to_pixels, render_text,
+};
 use kanjisabi::overlay::x11::{
     create_overlay_window, paint_rgba_pixels_on_window, raise_if_not_top, resize_window, with_name,
     xfixes_init,
@@ -19,12 +21,12 @@ fn main() -> Result<()> {
     xfixes_init(&conn);
     let screen = &conn.setup().roots[screen_num];
 
-    let win0 = create_overlay_window(&conn, &screen, 50, 50, width0, height0)?;
+    let win0 = create_overlay_window(&conn, screen, 50, 50, width0, height0)?;
     println!("{}", win0);
     with_name(&conn, win0, "X11 Rust overlay1")?;
     conn.map_window(win0)?;
 
-    let win1 = create_overlay_window(&conn, &screen, 50, 50 + height0 as i16, width0, height0)?;
+    let win1 = create_overlay_window(&conn, screen, 50, 50 + height0 as i16, width0, height0)?;
     println!("{}", win1);
     with_name(&conn, win1, "X11 Rust overlay2")?;
     conn.map_window(win1)?;
@@ -39,18 +41,25 @@ fn main() -> Result<()> {
         .unwrap()
         .path;
 
-    let mut data = vec![0; width0 as usize * height0 as usize * 4];
-    print_to_existing_pixels(
+    let text = render_text(
         &sdl2_ttf_ctx,
         "fit text to canvas",
         &font_path,
-        0xFFFF0000,
-        0x20002000,
+        argb_to_sdl_color(0xFFFF0000),
         96,
+    );
+
+    let mut data = vec![0; width0 as usize * height0 as usize * 4];
+
+    print_to_pixels(
+        &text,
         &mut data,
         width0 as u32,
         height0 as u32,
+        argb_to_sdl_color(0x20002000),
+        None,
     );
+
     paint_rgba_pixels_on_window(&conn, win0, &data, 0, 0, width0 as u32, height0 as u32)?;
 
     let (data, width, height) = print_to_new_pixels(
@@ -74,10 +83,8 @@ fn main() -> Result<()> {
     loop {
         if let Some(event) = conn.poll_for_event().unwrap() {
             println!("Event: {:?}", event);
-        } else {
-            if i == 0 {
-                raise_if_not_top(&conn, screen.root, win0)?;
-            }
+        } else if i == 0 {
+            raise_if_not_top(&conn, screen.root, win0)?;
         }
 
         i = (i + 1) % STACK_CHECK_DELAY;
