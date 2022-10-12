@@ -121,7 +121,6 @@ fn default_hint_bg() -> u32 {
     0xC0000024
 }
 
-// TODO possible to tell serde to re-use defaults?
 #[derive(Deserialize, Debug)]
 pub struct Colors {
     // #[serde(default = "default_capture")]
