@@ -266,6 +266,8 @@ impl App {
 
         self.draw_hint()?;
 
+        // TODO: pretty print morphological analysis
+
         // self.draw_translations();
 
         Ok(())

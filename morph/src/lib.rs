@@ -52,7 +52,7 @@ impl JpnMorphAnalysisAPI {
             .lindera_tokens(text)
             .await?
             .into_iter()
-            .filter_map(|t| categorize(&t))
+            .filter_map(categorize)
             .collect())
     }
 
@@ -107,25 +107,30 @@ from: https://hayashibe.jp/tr/mecab/dictionary/unidic/field
 [pos_major,pos_minor,pos_small,pos_tiny,inflection_type,inflection_form,lemma_kata,lemma,inflected,inflected_kata,lemma_written,lemma_kata,origin,iType,iForm,fType,fForm]
 */
 #[cfg(feature = "unidic")]
-pub fn categorize(details: &Vec<String>) -> Option<Morpheme> {
+pub fn categorize(details: Vec<String>) -> Option<Morpheme> {
     log::debug!("Lindera's output: {:?}", details);
     if details.len() != 17 {
         return None;
     }
 
+    let text = details[8].to_owned();
+    let lemma = details[7].to_owned();
+    let pronounciation = details[6].to_owned();
+    let inflection_type = Some(details[4].to_owned()).filter(|s| *s != "*");
+    let inflection_form = Some(details[5].to_owned()).filter(|s| *s != "*");
     let part_of_speech = details
-        .iter()
+        .into_iter()
         .take(4)
         .take_while(|s| *s != "*")
-        .cloned()
         .intersperse("-".to_owned())
         .collect();
+
     Some(Morpheme {
-        text: details[8].to_owned(),
-        lemma: details[7].to_owned(),
-        pronounciation: details[6].to_owned(),
+        text,
+        lemma,
+        pronounciation,
         part_of_speech,
-        inflection_type: Some(details[4].to_owned()).filter(|s| *s != "*"),
-        inflection_form: Some(details[5].to_owned()).filter(|s| *s != "*"),
+        inflection_type,
+        inflection_form,
     })
 }

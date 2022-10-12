@@ -201,9 +201,7 @@ impl JpnOCR {
             };
             char_index += len;
 
-            // TODO restore
-            // println!("{:?}", categorize(&token));
-
+            // TODO: dictionary integration
             // print_jmdict_results(&morpheme.text);
             // if let Some(dict_form) = morpheme.detail.get(6) {
             //     if dict_form != &morpheme.text {
