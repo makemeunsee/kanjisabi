@@ -53,6 +53,8 @@ fn config_path() -> PathBuf {
 
 #[derive(Deserialize, Debug, Default)]
 pub struct KSConfig {
+    #[serde(default = "LinderaConfig::default")]
+    pub lindera: LinderaConfig,
     #[serde(default = "Font::default")]
     pub font: Font,
     #[serde(default = "Colors::default")]
@@ -61,6 +63,26 @@ pub struct KSConfig {
     pub preproc: Preproc,
     #[serde(default = "Keys::default")]
     pub keys: Keys,
+}
+
+// Lindera server integration
+
+fn default_lindera_address() -> String {
+    "0.0.0.0:3333".to_owned()
+}
+
+#[derive(Deserialize, Debug)]
+pub struct LinderaConfig {
+    #[serde(default = "default_lindera_address")]
+    pub server_address: String,
+}
+
+impl Default for LinderaConfig {
+    fn default() -> Self {
+        Self {
+            server_address: default_lindera_address(),
+        }
+    }
 }
 
 // font

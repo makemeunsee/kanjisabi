@@ -5,7 +5,7 @@ use super::{OCRWord, OCR};
 use anyhow::Result;
 use jmdict::Entry;
 use log::info;
-use morph::JpnMorphAnalysisAPI;
+use morph::{JpnMorphAnalysisAPI, Morpheme};
 use tokio::runtime::{Builder, Runtime};
 
 pub struct JpnOCR {
@@ -18,13 +18,7 @@ pub struct JpnOCR {
 
 #[derive(Debug)]
 pub struct VisualMorpheme {
-    pub text: String,
-    /// Same structure as `lindera::tokenizer::Token.detail` - present documentation is empirical
-    /// if the original token is valid:
-    /// [type, subtype, detail1, detail2, verb group, verb form, dict form, alt pronunciation1?, alt pronunciation2?]
-    /// otherwise:
-    /// ["UNK"]
-    pub detail: Vec<String>,
+    pub morpheme: Morpheme,
     pub bbox: Option<(i32, i32, i32, i32)>,
 }
 
@@ -168,17 +162,13 @@ impl JpnOCR {
 
         let chars_in_morphemes = morphemes
             .iter()
-            .map(|t| t.text().chars().count() as u32)
+            .map(|m| m.text.chars().count() as u32)
             .sum::<u32>();
 
         if chars_in_seq != chars_in_morphemes {
             info!("Inconsistent morphological analysis results, discarding them");
             return JpnText {
-                morphemes: vec![VisualMorpheme {
-                    text: text.clone(),
-                    detail: vec![],
-                    bbox: Some((x, y, w, h)),
-                }],
+                morphemes: vec![],
                 x,
                 y,
                 w,
@@ -189,8 +179,8 @@ impl JpnOCR {
         let mut v_morphemes = vec![];
 
         let mut char_index = 0;
-        for morpheme in &morphemes {
-            let len = morpheme.text().chars().count();
+        for morpheme in morphemes {
+            let len = morpheme.text.chars().count();
             let mut x = std::i32::MAX;
             let mut y = std::i32::MAX;
             let mut w = 0;
@@ -206,16 +196,10 @@ impl JpnOCR {
 
             let bbox = (x, y, w, h);
             let v_morpheme = VisualMorpheme {
-                text: morpheme.text().to_owned(),
-                detail: vec![
-                    morpheme.dict_form().to_owned(),
-                    morpheme.category().to_string(),
-                ],
+                morpheme,
                 bbox: Some(bbox),
             };
             char_index += len;
-
-            println!("morpheme: {}", v_morpheme.text);
 
             // TODO restore
             // println!("{:?}", categorize(&token));

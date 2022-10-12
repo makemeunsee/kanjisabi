@@ -20,9 +20,7 @@ Powered by:
 - Running on the system:
   - A `X11` server, until someone passionate wants to port the UI logic to Wayland/Windows/whatever
   - A compositor, e.g. `picom`, to handle transparency; this should only be relevant to people running tiling windows managers such as `xmonad` or `i3`, full-fledged desktop environments like KDE or GNOME have their own compositor.
-  - A [Lindera server](https://github.com/lindera-morphology/lindera-server), using the dictionary matching the configuration of the Kanjisabi server (so far, using [features](morph_server/Cargo.toml)). The Lindera server can actually run remotely, its socket address can be provided:
-    - as argument when running the Kanjisabi server, see `cargo run --bin morph_server -- --help`
-    - with the `LINDERA_ADDR` environment variable when executing tests
+  - A [Lindera server](https://github.com/lindera-morphology/lindera-server), using the dictionary matching the configuration of the Kanjisabi server (so far, using [features](morph_server/Cargo.toml)). The Lindera server can actually run remotely, and its socket address (IP+port) can be set in the [configuration](#configuration)
 - Libraries installed on the system:
   - `sdl2` and `sdl2_ttf`
   - `leptonica` and `tesseract`
@@ -45,6 +43,10 @@ Powered by:
 Here's an annotated configuration showing the default values:
 
 ```toml
+[lindera]
+# the address of the Lindera server, to which morphological analysis is delegated
+server_address = "0.0.0.0:3333"
+
 [font]
 # what font to use when displaying hints; the first Japanese font found will be used if empty
 family = ""
@@ -78,6 +80,10 @@ font_down = ["RShift"]
 # cycle through the translation hints to display
 next_hint = ["LControl"]
 ```
+
+## Future features
+
+Dependency parsing, similar to / based on [UniDic2UD](https://github.com/KoichiYasuoka/UniDic2UD)
 
 ## Acknowledgments
 

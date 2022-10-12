@@ -191,7 +191,7 @@ impl App {
             &jpn_text
                 .morphemes
                 .iter()
-                .map(|m| m.text.as_str())
+                .map(|vm| vm.morpheme.text.as_str())
                 .collect::<Vec<&str>>()
                 .join("|"),
             &self.font_path,
@@ -410,8 +410,7 @@ fn main() -> Result<()> {
     let config = load_config().unwrap_or_default();
     debug!("{:?}", config);
 
-    // TODO addr from config + described in README
-    let morph_api = JpnMorphAnalysisAPI::with_lindera_address("0.0.0.0:3333")?;
+    let morph_api = JpnMorphAnalysisAPI::with_lindera_address(&config.lindera.server_address)?;
 
     let (conn, screen_num) = x11rb::connect(None)?;
     xfixes_init(&conn);
