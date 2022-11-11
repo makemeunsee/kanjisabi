@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Result;
 use fontconfig::Fontconfig;
 use kanjisabi::overlay::sdl::{
-    argb_to_sdl_color, print_to_new_pixels, print_to_pixels, render_text,
+    argb_to_sdl_color, print_to_new_pixels, print_to_pixels, render_text, TextMeta,
 };
 use kanjisabi::overlay::x11::{
     create_overlay_window, paint_rgba_pixels_on_window, raise_if_not_top, resize_window, with_name,
@@ -45,10 +45,12 @@ fn main() -> Result<()> {
     let text = render_text(
         &sdl2_ttf_ctx,
         "fit text to canvas",
-        &font_path,
-        argb_to_sdl_color(0xFFFF0000),
-        96,
-        FontStyle::empty(),
+        &TextMeta {
+            font_path: &font_path,
+            color: argb_to_sdl_color(0xFFFF0000),
+            point_size: 96,
+            styles: FontStyle::empty(),
+        },
     );
 
     let mut data = vec![0; width0 as usize * height0 as usize * 4];
@@ -67,12 +69,14 @@ fn main() -> Result<()> {
     let (data, width, height) = print_to_new_pixels(
         &sdl2_ttf_ctx,
         "stretch canvas to text - 天上天下",
-        &font_path,
-        0xFFFFDD00,
+        &TextMeta {
+            font_path: &font_path,
+            color: argb_to_sdl_color(0xFFFFDD00),
+            point_size: 96,
+            styles: FontStyle::empty(),
+        },
         0x40000040,
         0,
-        96,
-        FontStyle::empty(),
     );
     resize_window(&conn, win1, width, height)?;
     paint_rgba_pixels_on_window(&conn, win1, &data, 0, 0, width, height)?;

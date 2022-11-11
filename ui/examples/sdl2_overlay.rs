@@ -2,7 +2,7 @@ extern crate sdl2;
 
 use anyhow::Result;
 use fontconfig::Fontconfig;
-use kanjisabi::overlay::sdl::{print_to_canvas_and_resize, Overlay};
+use kanjisabi::overlay::sdl::{argb_to_sdl_color, print_to_canvas_and_resize, Overlay, TextMeta};
 use kanjisabi::overlay::x11::make_x11_win_input_passthrough;
 use sdl2::pixels::Color;
 use sdl2::ttf::FontStyle;
@@ -33,11 +33,13 @@ pub fn main() -> Result<()> {
         &sdl2_ttf_ctx,
         &mut text,
         "Aæïůƀłいぇコーピ饅頭",
-        &font_path,
-        0xFF32FF00,
+        &TextMeta {
+            font_path: &font_path,
+            color: argb_to_sdl_color(0xFF32FF00),
+            point_size: 48,
+            styles: FontStyle::empty(),
+        },
         Some(0x00000032),
-        48,
-        FontStyle::empty(),
     );
     text.present();
 

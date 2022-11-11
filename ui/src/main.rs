@@ -12,7 +12,7 @@ use kanjisabi::config::{load_config, watch_config, KSConfig};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
 use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
-use kanjisabi::overlay::sdl::print_to_new_pixels;
+use kanjisabi::overlay::sdl::{argb_to_sdl_color, print_to_new_pixels, TextMeta};
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window, raise,
     with_name, xfixes_init,
@@ -196,6 +196,18 @@ impl App {
         let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
         let scaled_size = font_size * self.font_scale as f32 / 100.;
 
+        let text_meta = TextMeta {
+            font_path: &self.font_path,
+            color: argb_to_sdl_color(self.config.colors.hint),
+            point_size: scaled_size as u16,
+            styles: FontStyle::empty(),
+        };
+
+        let text_meta_underline = TextMeta {
+            styles: FontStyle::UNDERLINE,
+            ..text_meta
+        };
+
         let with_seps = jpn_text
             .morphemes
             .iter()
@@ -208,12 +220,9 @@ impl App {
         let (data_pre, width_pre, height_pre) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
             &pre.join(""),
-            &self.font_path,
-            self.config.colors.hint,
+            &text_meta,
             self.config.colors.hint_bg,
             0,
-            scaled_size as u16,
-            FontStyle::empty(),
         );
 
         let y = y0 + jpn_text.y;
@@ -232,12 +241,9 @@ impl App {
         let (data_mph, width_mph, height_mph) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
             &mph.join(""),
-            &self.font_path,
-            self.config.colors.hint,
+            &text_meta_underline,
             self.config.colors.hint_bg,
             0,
-            scaled_size as u16,
-            FontStyle::UNDERLINE,
         );
 
         x += width_pre as i32;
@@ -255,12 +261,9 @@ impl App {
         let (data_post, width_post, height_post) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
             &post.join(""),
-            &self.font_path,
-            self.config.colors.hint,
+            &text_meta,
             self.config.colors.hint_bg,
             0,
-            scaled_size as u16,
-            FontStyle::empty(),
         );
 
         x += width_mph as i32;

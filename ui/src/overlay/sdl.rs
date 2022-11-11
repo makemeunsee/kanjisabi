@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 use sdl2::{
     pixels::{Color, PixelMasks},
@@ -82,20 +82,20 @@ pub fn argb_to_sdl_color(argb: u32) -> sdl2::pixels::Color {
     )
 }
 
-pub fn render_text<'a, P>(
-    ctx: &'a Sdl2TtfContext,
-    text: &str,
-    font_path: P,
-    color_fg: Color,
-    point_size: u16,
-    styles: FontStyle,
-) -> Surface<'a>
-where
-    P: AsRef<Path>,
-{
-    let mut font = ctx.load_font(font_path, point_size).unwrap();
-    font.set_style(styles);
-    font.render(text).blended(color_fg).unwrap()
+#[derive(Clone)]
+pub struct TextMeta<'a> {
+    pub font_path: &'a PathBuf,
+    pub color: Color,
+    pub point_size: u16,
+    pub styles: FontStyle,
+}
+
+pub fn render_text<'a>(ctx: &'a Sdl2TtfContext, text: &str, text_meta: &TextMeta) -> Surface<'a> {
+    let mut font = ctx
+        .load_font(text_meta.font_path, text_meta.point_size)
+        .unwrap();
+    font.set_style(text_meta.styles);
+    font.render(text).blended(text_meta.color).unwrap()
 }
 
 fn print_to_window_canvas(source: &Surface, dest: &mut Canvas<Window>) {
@@ -142,31 +142,19 @@ pub fn print_to_pixels(
     print_to_surface_canvas(source, &mut target, dest_rect);
 }
 
-pub fn print_to_new_pixels<P>(
+pub fn print_to_new_pixels(
     ctx: &Sdl2TtfContext,
     text: &str,
-    font_path: P,
-    color_fg: u32,
+    text_meta: &TextMeta,
     color_bg: u32,
     margin: u32,
-    point_size: u16,
-    styles: FontStyle,
-) -> (Vec<u8>, u32, u32)
-where
-    P: AsRef<Path>,
-{
-    if text == "" {
+) -> (Vec<u8>, u32, u32) {
+    if text.is_empty() {
         return (vec![], 0, 0);
     }
 
-    let text = render_text(
-        ctx,
-        text,
-        font_path,
-        argb_to_sdl_color(color_fg),
-        point_size,
-        styles,
-    );
+    let text = render_text(ctx, text, text_meta);
+
     let width = text.width() + 2 * margin;
     let height = text.height() + 2 * margin;
 
@@ -190,26 +178,14 @@ where
     (data, width, height)
 }
 
-pub fn print_to_canvas_and_resize<P>(
+pub fn print_to_canvas_and_resize(
     ctx: &Sdl2TtfContext,
     canvas: &mut Canvas<Window>,
     text: &str,
-    font_path: &P,
-    color_fg: u32,
+    text_meta: &TextMeta,
     color_bg: Option<u32>,
-    point_size: u16,
-    styles: FontStyle,
-) where
-    P: AsRef<Path>,
-{
-    let text = render_text(
-        ctx,
-        text,
-        font_path,
-        argb_to_sdl_color(color_fg),
-        point_size,
-        styles,
-    );
+) {
+    let text = render_text(ctx, text, text_meta);
 
     canvas
         .window_mut()
