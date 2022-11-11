@@ -114,6 +114,7 @@ pub fn categorize(details: Vec<String>) -> Option<Morpheme> {
     }
 
     let text = details[8].to_owned();
+    // caution, sometimes it's not just the lemma, e.g. '君' gives '君-代名詞', redundant with PoS
     let lemma = details[7].to_owned();
     let pronounciation = details[6].to_owned();
     let inflection_type = Some(details[4].to_owned()).filter(|s| *s != "*");

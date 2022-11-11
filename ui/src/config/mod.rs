@@ -195,11 +195,11 @@ fn default_font_down() -> Vec<Keycode> {
 }
 
 fn default_next_hint() -> Vec<Keycode> {
-    vec![Keycode::LControl]
+    vec![Keycode::LShift]
 }
 
 fn default_next_morpheme() -> Vec<Keycode> {
-    vec![Keycode::LShift]
+    vec![Keycode::LControl]
 }
 
 #[serde_as]

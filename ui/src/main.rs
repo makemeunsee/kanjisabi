@@ -208,6 +208,8 @@ impl App {
             ..text_meta
         };
 
+        let vmorpheme = &jpn_text.morphemes[morpheme_index];
+
         let with_seps = jpn_text
             .morphemes
             .iter()
@@ -215,7 +217,10 @@ impl App {
             .intersperse("|")
             .collect::<Vec<&str>>();
         let (pre, rest) = with_seps.split_at(2 * morpheme_index);
-        let (mph, post) = rest.split_at(1);
+        let (_, post) = rest.split_at(1);
+
+        let y = y0 + jpn_text.y;
+        let mut x = x0 + jpn_text.x;
 
         let (data_pre, width_pre, height_pre) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
@@ -224,9 +229,6 @@ impl App {
             self.config.colors.hint_bg,
             0,
         );
-
-        let y = y0 + jpn_text.y;
-        let mut x = x0 + jpn_text.x;
 
         paint_rgba_pixels_on_window(
             &self.conn,
@@ -238,15 +240,15 @@ impl App {
             height_pre,
         )?;
 
+        x += width_pre as i32;
+
         let (data_mph, width_mph, height_mph) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
-            &mph.join(""),
+            &vmorpheme.morpheme.text,
             &text_meta_underline,
             self.config.colors.hint_bg,
             0,
         );
-
-        x += width_pre as i32;
 
         paint_rgba_pixels_on_window(
             &self.conn,
@@ -258,6 +260,70 @@ impl App {
             height_mph,
         )?;
 
+        {
+            let mut y = y + height_mph as i32;
+
+            let (data_pronounc, width_pronounc, height_pronounc) = print_to_new_pixels(
+                &self.sdl2_ttf_ctx,
+                &vmorpheme.morpheme.pronounciation,
+                &text_meta,
+                self.config.colors.hint_bg,
+                0,
+            );
+
+            paint_rgba_pixels_on_window(
+                &self.conn,
+                self.window,
+                &data_pronounc,
+                x,
+                y,
+                width_pronounc,
+                height_pronounc,
+            )?;
+
+            y += height_pronounc as i32;
+
+            let (data_lemma, width_lemma, height_lemma) = print_to_new_pixels(
+                &self.sdl2_ttf_ctx,
+                &vmorpheme.morpheme.lemma,
+                &text_meta,
+                self.config.colors.hint_bg,
+                0,
+            );
+
+            paint_rgba_pixels_on_window(
+                &self.conn,
+                self.window,
+                &data_lemma,
+                x,
+                y,
+                width_lemma,
+                height_lemma,
+            )?;
+
+            y += height_lemma as i32;
+
+            let (data_pos, width_pos, height_pos) = print_to_new_pixels(
+                &self.sdl2_ttf_ctx,
+                &vmorpheme.morpheme.part_of_speech,
+                &text_meta,
+                self.config.colors.hint_bg,
+                0,
+            );
+
+            paint_rgba_pixels_on_window(
+                &self.conn,
+                self.window,
+                &data_pos,
+                x,
+                y,
+                width_pos,
+                height_pos,
+            )?;
+        }
+
+        x += width_mph as i32;
+
         let (data_post, width_post, height_post) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
             &post.join(""),
@@ -265,8 +331,6 @@ impl App {
             self.config.colors.hint_bg,
             0,
         );
-
-        x += width_mph as i32;
 
         paint_rgba_pixels_on_window(
             &self.conn,

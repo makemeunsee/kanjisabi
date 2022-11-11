@@ -30,11 +30,13 @@ Powered by:
 
 ## Usage
 
-- Hold `ctrl` + `alt` to start capturing an area on screen by moving the moving cursor
-- Release `ctrl` + `alt` to trigger OCR, morphological analysis and translation hints
-- Press `lshift` or `rshift` while the overlay is displayed to increase or decrease the hints font size
-- Press again `ctrl` + `alt` without moving the mouse to discard the overlay
-- `ctrl` + `alt` + `escape` to exit the program
+- Hold `lctrl` + `lalt` to start capturing an area on screen by moving the moving cursor
+- Release `lctrl` + `lalt` to trigger OCR, morphological analysis and translation hints
+- Press `lshift` while the overlay is displayed to cycle through hints
+- Press `lctrl` while the overlay is displayed to cycle through morphemes to detail within a hint
+- Press `rshift` or `rctrl` while the overlay is displayed to increase or decrease the hints font size
+- Press again `lctrl` + `lalt` without moving the mouse to discard the overlay
+- `lctrl` + `lalt` + `escape` to exit the program
 
 ## Configuration
 
@@ -77,9 +79,9 @@ quit = ["LControl", "LAlt", "Escape"]
 font_up = ["RControl"]
 # decrease the font size
 font_down = ["RShift"]
-# cycle through the translation hints to display
+# cycle through the visual hints to display
 next_hint = ["LControl"]
-# cycle through the translation morphemes, within a hint, to display
+# cycle through the translation morphemes (within a hint) to detail
 next_morpheme = ["LShift"]
 ```
 
