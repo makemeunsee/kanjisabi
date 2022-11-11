@@ -5,6 +5,7 @@ use fontconfig::Fontconfig;
 use kanjisabi::overlay::sdl::{print_to_canvas_and_resize, Overlay};
 use kanjisabi::overlay::x11::make_x11_win_input_passthrough;
 use sdl2::pixels::Color;
+use sdl2::ttf::FontStyle;
 use std::time::Duration;
 
 pub fn main() -> Result<()> {
@@ -36,6 +37,7 @@ pub fn main() -> Result<()> {
         0xFF32FF00,
         Some(0x00000032),
         48,
+        FontStyle::empty(),
     );
     text.present();
 

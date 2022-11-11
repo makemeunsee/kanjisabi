@@ -9,6 +9,7 @@ use kanjisabi::overlay::x11::{
     create_overlay_window, paint_rgba_pixels_on_window, raise_if_not_top, resize_window, with_name,
     xfixes_init,
 };
+use sdl2::ttf::FontStyle;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::ConnectionExt as _;
 
@@ -47,6 +48,7 @@ fn main() -> Result<()> {
         &font_path,
         argb_to_sdl_color(0xFFFF0000),
         96,
+        FontStyle::empty(),
     );
 
     let mut data = vec![0; width0 as usize * height0 as usize * 4];
@@ -70,6 +72,7 @@ fn main() -> Result<()> {
         0x40000040,
         0,
         96,
+        FontStyle::empty(),
     );
     resize_window(&conn, win1, width, height)?;
     paint_rgba_pixels_on_window(&conn, win1, &data, 0, 0, width, height)?;

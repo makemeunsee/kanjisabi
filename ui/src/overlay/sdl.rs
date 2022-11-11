@@ -6,7 +6,7 @@ use sdl2::{
     render::Canvas,
     surface::Surface,
     sys::SDL_WindowFlags,
-    ttf::Sdl2TtfContext,
+    ttf::{FontStyle, Sdl2TtfContext},
     video::Window,
     VideoSubsystem,
 };
@@ -88,15 +88,14 @@ pub fn render_text<'a, P>(
     font_path: P,
     color_fg: Color,
     point_size: u16,
+    styles: FontStyle,
 ) -> Surface<'a>
 where
     P: AsRef<Path>,
 {
-    ctx.load_font(font_path, point_size)
-        .unwrap()
-        .render(text)
-        .blended(color_fg)
-        .unwrap()
+    let mut font = ctx.load_font(font_path, point_size).unwrap();
+    font.set_style(styles);
+    font.render(text).blended(color_fg).unwrap()
 }
 
 fn print_to_window_canvas(source: &Surface, dest: &mut Canvas<Window>) {
@@ -151,16 +150,22 @@ pub fn print_to_new_pixels<P>(
     color_bg: u32,
     margin: u32,
     point_size: u16,
+    styles: FontStyle,
 ) -> (Vec<u8>, u32, u32)
 where
     P: AsRef<Path>,
 {
+    if text == "" {
+        return (vec![], 0, 0);
+    }
+
     let text = render_text(
         ctx,
         text,
         font_path,
         argb_to_sdl_color(color_fg),
         point_size,
+        styles,
     );
     let width = text.width() + 2 * margin;
     let height = text.height() + 2 * margin;
@@ -193,6 +198,7 @@ pub fn print_to_canvas_and_resize<P>(
     color_fg: u32,
     color_bg: Option<u32>,
     point_size: u16,
+    styles: FontStyle,
 ) where
     P: AsRef<Path>,
 {
@@ -202,6 +208,7 @@ pub fn print_to_canvas_and_resize<P>(
         font_path,
         argb_to_sdl_color(color_fg),
         point_size,
+        styles,
     );
 
     canvas

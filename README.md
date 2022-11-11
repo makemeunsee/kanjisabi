@@ -74,11 +74,13 @@ trigger = ["LControl", "LAlt"]
 # exit the application
 quit = ["LControl", "LAlt", "Escape"]
 # increase the font size
-font_up = ["LShift"]
+font_up = ["RControl"]
 # decrease the font size
 font_down = ["RShift"]
 # cycle through the translation hints to display
 next_hint = ["LControl"]
+# cycle through the translation morphemes, within a hint, to display
+next_morpheme = ["LShift"]
 ```
 
 ## Future features

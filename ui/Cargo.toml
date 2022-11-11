@@ -11,7 +11,7 @@ config = { version = "0.13", features = ["toml"] }
 device_query = "1.1"
 directories = "4.0"
 env_logger = "0.9"
-fontconfig = "0.5"
+fontconfig = "0.6"
 image = "0.24"
 jmdict = "2.0"
 log = "0.4"

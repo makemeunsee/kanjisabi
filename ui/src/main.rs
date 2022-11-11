@@ -1,3 +1,5 @@
+#![feature(iter_intersperse)]
+
 extern crate device_query;
 extern crate screenshot;
 extern crate tesseract;
@@ -18,7 +20,7 @@ use kanjisabi::overlay::x11::{
 use log::{debug, info, trace, warn};
 use morph::JpnMorphAnalysisAPI;
 use screenshot::get_screenshot_area;
-use sdl2::ttf::Sdl2TtfContext;
+use sdl2::ttf::{FontStyle, Sdl2TtfContext};
 use std::path::PathBuf;
 use std::time;
 use x11rb::connection::Connection;
@@ -79,6 +81,7 @@ struct App {
     capture_y1: i32,
     ocr_results: Vec<JpnText>,
     result_index: usize,
+    morpheme_index: usize,
     font_scale: i32,
     font_path: PathBuf,
 }
@@ -122,6 +125,7 @@ impl App {
     fn reset_ocr(&mut self) -> Result<()> {
         self.ocr_results.clear();
         self.result_index = 0;
+        self.morpheme_index = 0;
         self.clear_overlay()?;
         Ok(())
     }
@@ -181,34 +185,94 @@ impl App {
         Ok(())
     }
 
-    fn draw_ocr_result(&self, jpn_text: &JpnText, x0: i32, y0: i32) -> Result<()> {
+    fn draw_ocr_result(
+        &self,
+        jpn_text: &JpnText,
+        x0: i32,
+        y0: i32,
+        morpheme_index: usize,
+    ) -> Result<()> {
         // TODO introduce min/max font sizes from config
         let font_size = ((jpn_text.h as f32 / 8.).round() * 8.).max(8.);
         let scaled_size = font_size * self.font_scale as f32 / 100.;
 
-        let (data, width, height) = print_to_new_pixels(
+        let with_seps = jpn_text
+            .morphemes
+            .iter()
+            .map(|vm| vm.morpheme.text.as_str())
+            .intersperse("|")
+            .collect::<Vec<&str>>();
+        let (pre, rest) = with_seps.split_at(2 * morpheme_index);
+        let (mph, post) = rest.split_at(1);
+
+        let (data_pre, width_pre, height_pre) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
-            &jpn_text
-                .morphemes
-                .iter()
-                .map(|vm| vm.morpheme.text.as_str())
-                .collect::<Vec<&str>>()
-                .join("|"),
+            &pre.join(""),
             &self.font_path,
             self.config.colors.hint,
             self.config.colors.hint_bg,
-            (scaled_size / 2.) as u32,
+            0,
             scaled_size as u16,
+            FontStyle::empty(),
         );
+
+        let y = y0 + jpn_text.y;
+        let mut x = x0 + jpn_text.x;
 
         paint_rgba_pixels_on_window(
             &self.conn,
             self.window,
-            &data,
-            x0 + jpn_text.x,
-            y0 + jpn_text.y,
-            width,
-            height,
+            &data_pre,
+            x,
+            y,
+            width_pre,
+            height_pre,
+        )?;
+
+        let (data_mph, width_mph, height_mph) = print_to_new_pixels(
+            &self.sdl2_ttf_ctx,
+            &mph.join(""),
+            &self.font_path,
+            self.config.colors.hint,
+            self.config.colors.hint_bg,
+            0,
+            scaled_size as u16,
+            FontStyle::UNDERLINE,
+        );
+
+        x += width_pre as i32;
+
+        paint_rgba_pixels_on_window(
+            &self.conn,
+            self.window,
+            &data_mph,
+            x,
+            y,
+            width_mph,
+            height_mph,
+        )?;
+
+        let (data_post, width_post, height_post) = print_to_new_pixels(
+            &self.sdl2_ttf_ctx,
+            &post.join(""),
+            &self.font_path,
+            self.config.colors.hint,
+            self.config.colors.hint_bg,
+            0,
+            scaled_size as u16,
+            FontStyle::empty(),
+        );
+
+        x += width_mph as i32;
+
+        paint_rgba_pixels_on_window(
+            &self.conn,
+            self.window,
+            &data_post,
+            x,
+            y,
+            width_post,
+            height_post,
         )?;
 
         Ok(())
@@ -219,7 +283,7 @@ impl App {
             let x0 = std::cmp::min(self.capture_x0, self.capture_x1);
             let y0 = std::cmp::min(self.capture_y0, self.capture_y1);
 
-            self.draw_ocr_result(jpn_text, x0, y0)?;
+            self.draw_ocr_result(jpn_text, x0, y0, self.morpheme_index)?;
 
             self.conn.flush()?;
         }
@@ -293,6 +357,10 @@ impl App {
         same_content(keys, &self.config.keys.next_hint)
     }
 
+    fn next_morpheme(&self, keys: &[Keycode]) -> bool {
+        same_content(keys, &self.config.keys.next_morpheme)
+    }
+
     fn run(&mut self) -> Result<()> {
         let (config_rx, _config_watcher) = watch_config()?;
 
@@ -304,6 +372,7 @@ impl App {
         let mut increased = false;
         let mut decreased = false;
         let mut next_hint_requested = false;
+        let mut next_morpheme_requested = false;
 
         let mut window_mapped = false;
         let mut selecting_area = false;
@@ -353,11 +422,24 @@ impl App {
                 debug!("next hint requested");
                 if !self.ocr_results.is_empty() && !next_hint_requested {
                     self.result_index = (self.result_index + 1) % self.ocr_results.len();
+                    self.morpheme_index = 0;
                     self.redraw_all()?;
                 }
                 next_hint_requested = true;
             } else {
                 next_hint_requested = false;
+            }
+
+            if self.next_morpheme(&keys) {
+                debug!("next morpheme requested");
+                if !self.ocr_results.is_empty() && !next_morpheme_requested {
+                    self.morpheme_index = (self.morpheme_index + 1)
+                        % self.ocr_results[self.result_index].morphemes.len();
+                    self.redraw_all()?;
+                }
+                next_morpheme_requested = true;
+            } else {
+                next_morpheme_requested = false;
             }
 
             if self.trigger(&keys) {
@@ -438,6 +520,7 @@ fn main() -> Result<()> {
         capture_y1: 0,
         ocr_results: vec![],
         result_index: 0,
+        morpheme_index: 0,
         font_scale: 100,
     };
 
