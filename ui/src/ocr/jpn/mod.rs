@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use super::{OCRWord, OCR};
 
 use anyhow::Result;
-use jmdict::Entry;
+use jmdict::{Entry, Gloss};
 use log::info;
 use morph::{JpnMorphAnalysisAPI, Morpheme};
 use tokio::runtime::{Builder, Runtime};
@@ -202,7 +202,6 @@ impl JpnOCR {
             char_index += len;
 
             // TODO: dictionary integration
-            // print_jmdict_results(&morpheme.text);
             // if let Some(dict_form) = morpheme.detail.get(6) {
             //     if dict_form != &morpheme.text {
             //         println!("morpheme dict form: {}", dict_form);
@@ -224,7 +223,9 @@ impl JpnOCR {
 }
 
 pub fn print_jmdict_results(text: &str) {
-    println!("->");
+    // TODO use PoS: e.senses().any(|s| s.parts_of_speech().any(morpheme_accepts_jmdict_pos))
+    // see https://docs.rs/jmdict/latest/jmdict/enum.PartOfSpeech.html
+    // TODO filter out senses with Info::ObsoleteTerm
     match jmdict::entries().find(|e| e.kanji_elements().any(|k| k.text == text)) {
         Some(entry) => print_entry(&entry),
         None => {
@@ -237,12 +238,31 @@ pub fn print_jmdict_results(text: &str) {
     }
 
     fn print_entry(entry: &Entry) {
-        let glosses: Vec<&str> = entry
-            .senses()
-            .flat_map(|s| s.glosses())
-            .map(|g| g.text)
-            .collect();
-        let readings: Vec<&str> = entry.reading_elements().map(|re| re.text).collect();
-        println!("{:?}\n{:?}", readings, glosses);
+        for sense in entry.senses() {
+            // let glosses: Vec<&str> = sense.glosses().map(|g| g.text).collect();
+            let glosses: Vec<Gloss> = sense.glosses().collect();
+            println!("{:?}", glosses);
+            println!("\ttopics:");
+            for topic in sense.topics() {
+                println!("\t\t{}", topic);
+            }
+            println!("\tparts of speech:");
+            for pos in sense.parts_of_speech() {
+                println!("\t\t{}", pos);
+            }
+            println!("\tinfos:");
+            for info in sense.infos() {
+                println!("\t\t{}", info);
+            }
+            println!("\tfreetext_infos:");
+            for info in sense.freetext_infos() {
+                println!("\t\t{}", info);
+            }
+            println!("\tcross_references:");
+            for x_ref in sense.cross_references() {
+                println!("\t\t{}", x_ref);
+            }
+        }
+        // let readings: Vec<&str> = entry.reading_elements().map(|re| re.text).collect();
     }
 }

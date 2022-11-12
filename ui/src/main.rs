@@ -10,8 +10,8 @@ use fontconfig::Fontconfig;
 use image::{ImageBuffer, Rgba};
 use kanjisabi::config::{load_config, watch_config, KSConfig};
 use kanjisabi::fonts::{japanese_font_families_and_styles_flat, path_to_font};
-use kanjisabi::ocr::jpn::JpnOCR;
 use kanjisabi::ocr::jpn::JpnText;
+use kanjisabi::ocr::jpn::{print_jmdict_results, JpnOCR};
 use kanjisabi::overlay::sdl::{argb_to_sdl_color, print_to_new_pixels, TextMeta};
 use kanjisabi::overlay::x11::{
     create_overlay_fullscreen_window, draw_a_rectangle, paint_rgba_pixels_on_window, raise,
@@ -208,7 +208,18 @@ impl App {
             ..text_meta
         };
 
-        let vmorpheme = &jpn_text.morphemes[morpheme_index];
+        let morpheme = &jpn_text.morphemes[morpheme_index].morpheme;
+        println!("text: {}", morpheme.text);
+        println!("pos: {}", morpheme.part_of_speech);
+        println!(
+            "form: {}",
+            morpheme.inflection_form.as_deref().unwrap_or_default()
+        );
+        println!(
+            "type: {}",
+            morpheme.inflection_type.as_deref().unwrap_or_default()
+        );
+        print_jmdict_results(&morpheme.text);
 
         let with_seps = jpn_text
             .morphemes
@@ -244,7 +255,7 @@ impl App {
 
         let (data_mph, width_mph, height_mph) = print_to_new_pixels(
             &self.sdl2_ttf_ctx,
-            &vmorpheme.morpheme.text,
+            &morpheme.text,
             &text_meta_underline,
             self.config.colors.hint_bg,
             0,
@@ -265,7 +276,7 @@ impl App {
 
             let (data_pronounc, width_pronounc, height_pronounc) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
-                &vmorpheme.morpheme.pronounciation,
+                &morpheme.pronounciation,
                 &text_meta,
                 self.config.colors.hint_bg,
                 0,
@@ -285,7 +296,7 @@ impl App {
 
             let (data_lemma, width_lemma, height_lemma) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
-                &vmorpheme.morpheme.lemma,
+                &morpheme.lemma,
                 &text_meta,
                 self.config.colors.hint_bg,
                 0,
@@ -305,7 +316,7 @@ impl App {
 
             let (data_pos, width_pos, height_pos) = print_to_new_pixels(
                 &self.sdl2_ttf_ctx,
-                &vmorpheme.morpheme.part_of_speech,
+                &morpheme.part_of_speech,
                 &text_meta,
                 self.config.colors.hint_bg,
                 0,
@@ -396,8 +407,6 @@ impl App {
         self.draw_highlights()?;
 
         self.draw_hint()?;
-
-        // TODO: pretty print morphological analysis
 
         // self.draw_translations();
 

@@ -89,6 +89,8 @@ next_morpheme = ["LShift"]
 
 Dependency parsing, similar to / based on [UniDic2UD](https://github.com/KoichiYasuoka/UniDic2UD)
 
-## Acknowledgments
+## Acknowledgments and licenses
 
 [kanjitomo-ocr](https://github.com/sakarika/kanjitomo-ocr) for the original inspiration.
+
+The database files (JMdict) compiled into the [`jmdict` crate](https://github.com/majewsky/rust-jmdict) this project depends on are licensed from the Electronic Dictionary Research and Development Group under Creative Commons licenses. Please refer to the [EDRDG's license statement](http://www.edrdg.org/edrdg/licence.html) for details.
